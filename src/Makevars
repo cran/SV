@@ -1,2 +1,2 @@
-# we use the BLAS and the LAPACK library, and lapack_atlas:
-PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS) # -llapack_atlas
+# we use the BLAS and the LAPACK library, and armadillo
+PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS) -larmadillo
