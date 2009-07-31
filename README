@@ -1,0 +1,4 @@
+The R package SV
+requires the freeware Armadillo (http://arma.sourceforge.net/)  to be installed.
+Armadillo can work without external libraries. However, to get the most functionality it's recommended to install (in advance) the LAPACK, BLAS and ATLAS libraries, as well as Boost libraries (version 1.34 or later), along with the corresponding development/header files. These libraries and development files may already be installed on your system. See Installation and Configuration Notes in  http://arma.sourceforge.net/.
+Further documentation on SV is available at http://folk.uio.no/skare/SV.

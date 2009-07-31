@@ -1,0 +1,18 @@
+export("QL",
+       "QLmulti",
+       "IndirectInference",
+       "SimulateVolatility",
+       "SimulateVolatilityMulti",
+       "print.ql",
+       "print.indirect",
+       "summary.ql",
+       "summary.indirect")
+##       "SimulationStudy")
+##exportClasses("Model", "SimStudyObject")
+##exportMethods("initialize")
+##importFrom("quantreg", latex.table)
+##import("methods")
+##importFrom("Hmisc", approxExtrap)
+##importFrom("kinship", align.pedigree, kindepth, autohint)
+##importFrom("MASS", write.matrix)
+##importFrom("hapsim", haplosim)
