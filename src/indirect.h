@@ -20,14 +20,17 @@ class Indirect : public QL {
 	   const double gradMax_,
 	   const int initialSteepestDescent_,
 	   const int ITMAX_,
-	   const int saveDraws_); // : QL(parObs_, minlambda_, maxlambda_), Simulate();
+	   const int saveDraws_,
+	   const int scoreCriterium_,
+	   const int optWeightMatrix_); // : QL(parObs_, minlambda_, maxlambda_), Simulate();
   ~Indirect();
 
   EstimationObject indirectInference(const vec & startpar, const int useQLAsStartPar=1);
   void test(vec & par);
 
   void checkContinuity(const vec & startpar, const int nEval, const double delta,
-		       int * indpar, mat & xvals, mat & xvals_transf, mat & funcvals);
+		       int * indpar, mat & xvals, mat & xvals_transf, mat & funcvals,
+		       const int profileGradient);
 
   double distanceMetric(const vec & par, int & status);
 
@@ -97,6 +100,9 @@ class Indirect : public QL {
   const int print_level;
   const int initialSteepestDescent;
   const int ITMAX;
+
+  const int scoreCriterium;
+  const int optWeightMatrix;
 
   void computeQLSimEstimate(const Parameters & pex, const vec & startpar, vec & est, mat & H);
   void confidenceIntervalsIndirect(const EstimationObject & obj,

@@ -91,3 +91,26 @@ mat MathOp::robustCholesky(const mat & S) {
 
   return S_sqrt;
 }
+
+vec MathOp::findSteepestDescent(double (*func)(const vec &, int &), vec p, const int npar, const double h) {
+  int status;
+  vec pder(npar);
+  vec pi(npar);
+  double f0 = func(p, status);
+
+  for (int i=0;i<npar;i++) {
+    pi(i) = p(i);
+  }
+  for (int i=0;i<npar;i++) {
+    pi(i) = p(i) + h;
+    double fi = func(pi, status);
+
+    pi(i) = p(i);
+    pder(i) = (fi - f0)/h;
+  }
+  pder = -pder;
+  //  pder.print("Steepeste descent direction=");
+  //  delete [] pi;
+
+  return pder;
+}

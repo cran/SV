@@ -116,11 +116,15 @@ Indirect::Indirect(const vec & y,
 		   const double gradMax_,
 		   const int initialSteepestDescent_,
 		   const int ITMAX_,
-		   const int saveDraws_) : QL(y, minlambda_, maxlambda_, transf_, addPenalty_, useRoptimiser_, gradMax_, nSup_, nTimes_, print_level_, saveDraws_),
-				       gradtol(gradtol_), ftol(ftol_), ftol_weak(ftol_weak_),
-				       print_level(print_level_),
-				       initialSteepestDescent(initialSteepestDescent_),
-				       ITMAX(ITMAX_)
+		   const int saveDraws_,
+		   const int scoreCriterium_,
+		   const int optWeightMatrix_) : QL(y, minlambda_, maxlambda_, transf_, addPenalty_, useRoptimiser_, gradMax_, nSup_, nTimes_, print_level_, saveDraws_),
+						 gradtol(gradtol_), ftol(ftol_), ftol_weak(ftol_weak_),
+						 print_level(print_level_),
+						 initialSteepestDescent(initialSteepestDescent_),
+						 ITMAX(ITMAX_),
+						 scoreCriterium(scoreCriterium_),
+						 optWeightMatrix(optWeightMatrix_)
 {
   nSim = nSim_;
   nTimes = nTimes_;
@@ -144,7 +148,8 @@ Indirect::~Indirect() {
 }
 
 void Indirect::checkContinuity(const vec & startpar, const int nEval, const double delta,
-			       int * indpar, mat & xvals, mat & xvals_transf, mat & funcvals) {
+			       int * indpar, mat & xvals, mat & xvals_transf, mat & funcvals,
+			       const int profileGradient) {
   if (print_level == 1) {
     Rprintf("---- Find QL estimate of observed data\n");
     Rprintf(" (use always own implemented bfgs since we need the hessian matrix)\n");
@@ -162,8 +167,18 @@ void Indirect::checkContinuity(const vec & startpar, const int nEval, const doub
 
   parObs =  res.par;
   parObs.print("parObs=");
-  W = res.H;
-  W.print("W=");
+  if (scoreCriterium) {
+    if (optWeightMatrix) { // Check this
+      mat gr = quasiLikelihood_individual(res.par);
+      mat I = gr * trans(gr); // / nTimes;
+      W =inv(I);
+    }
+    else
+      W = inv(res.H);
+  }
+  else {
+    W = res.H;
+  }
 
   vec par = startpar;
   int npar = par.n_elem;
@@ -178,6 +193,8 @@ void Indirect::checkContinuity(const vec & startpar, const int nEval, const doub
       nparOut++;
     }
   }
+  if (profileGradient)
+    nparOut++;
 
   xvals = zeros<mat>(nparOut,nEval);
   xvals_transf = zeros<mat>(nparOut,nEval);
@@ -186,23 +203,51 @@ void Indirect::checkContinuity(const vec & startpar, const int nEval, const doub
   int status;
   int k = 0;
 
-  for (int i=0;i<npar;i++) {
-    if (indpar[i]) {
-      Rprintf("Parameter %d\n", i);
+  vec grad;
+  if (profileGradient) {
+    const double h = 0.01; // NB: must be tuned
+    startpar_inner = parObs;
+    grad = findSteepestDescent(&funcOuter_nr, startpar, npar, h);
+    grad = grad/norm(grad, 2);
+    Rprintf("Check: norm(grad)=%8.6f\n", norm(grad, 2));
+
+  }
+
+  for (int i=0;i<npar+profileGradient;i++) {
+    int getProfile = 1;
+    if (i<npar) {
+      if (!indpar[i])
+	getProfile = 0;
+    }
+    if (getProfile) {
+      if (i<npar) 
+	Rprintf("Parameter %d\n", i);
+     else
+	Rprintf("Gradient direction\n");
       startpar_inner = parObs;
       for (int j=0;j<nEval;j++) {
 	if (j % 5 == 0) {
 	  Rprintf("%d ", j);
 	}
-	par(i) = startpar(i) + delta*(j-(nEval-1.0)/2.0);
-	funcvals(k,j) = distanceMetric(par, status);
+	if (i<npar)
+	  par(i) = startpar(i) + delta*(j-(nEval-1.0)/2.0);
+	else
+	  par = startpar + delta*(j-(nEval-1.0)/2.0)*grad;
+	funcvals(k,j) = funcOuter_nr(par, status);
 
 	Parameters pex(par, transf);
-	xvals(k,j) = pex.getPar(i);
-	xvals_transf(k,j) = par(i);
+	if (i<npar) {
+	  xvals(k,j) = pex.getPar(i);
+	  xvals_transf(k,j) = par(i);
+	}
+	else {
+	  xvals(k,j) = delta*(j-(nEval-1.0)/2.0);
+	  xvals_transf(k,j) = xvals(k,j);
+	}
       }
       Rprintf("\n");
-      par(i) = startpar(i); // Reset
+      if (i<npar)
+	par(i) = startpar(i); // Reset
       k++;
     }
   }
@@ -258,7 +303,19 @@ EstimationObject Indirect::indirectInference(const vec & startpar, const int use
   const mat Hi = inv(res.H);
   sdObs = sqrt(Hi.diag());
 
-  W = res.H;
+  if (scoreCriterium) {
+    if (optWeightMatrix) { // Check this
+      mat gr = quasiLikelihood_individual(res.par);
+      mat I = gr * trans(gr); // / nTimes;
+      W =inv(I);
+    }
+    else
+      W = inv(res.H);
+  }
+  else {
+    W = res.H;
+  }
+
   if (print_level >= 2) {
     parObs.print("parObs=");
     W.print("W=");
@@ -411,55 +468,72 @@ double Indirect::distanceMetric(const vec & par, int & status) {
 
   setDataLogReturns(ysim);
 
-  vec startpar = startpar_inner;
-  parFull = startpar;
-  updatePars = ones<ivec>(startpar.n_elem);
-  if (print_level >= 2) {
-    startpar.print("Start parameters innner optimisation:");
-  }
-  EstimationObject res = optimise(startpar, gradtol, print_level_inner, updatePars, func); // Call QL::optimise
-  if (res.status == EXIT_FAILURE) {
-    status = EXIT_FAILURE;
-    return 0;
-  }
-  const double limit = 10.0;
-  vec startpar_diff = res.par - startpar_inner;
-  if (norm(startpar_diff, 1) < limit) {
-    startpar_inner = res.par;
-  }
-  else if (print_level >= 2) {
-    Rprintf("Difference between estimate from innner optimisation and inner start values too large\n");
-    Rprintf("Inner start parameters not updated\n");
-  }
+  double dist;
+  if (!scoreCriterium) {
+    vec startpar = startpar_inner;
+    parFull = startpar;
+    updatePars = ones<ivec>(startpar.n_elem);
+    if (print_level >= 2) {
+      startpar.print("Start parameters innner optimisation:");
+    }
+    EstimationObject res = optimise(startpar, gradtol, print_level_inner, updatePars, func); // Call QL::optimise
+    if (res.status == EXIT_FAILURE) {
+      status = EXIT_FAILURE;
+      return 0;
+    }
+    const double limit = 10.0;
+    vec startpar_diff = res.par - startpar_inner;
+    if (norm(startpar_diff, 1) < limit) {
+      startpar_inner = res.par;
+    }
+    else if (print_level >= 2) {
+      Rprintf("Difference between estimate from innner optimisation and inner start values too large\n");
+      Rprintf("Inner start parameters not updated\n");
+    }
   
-  vec parsim =  res.par;
+    vec parsim =  res.par;
 
-  vec pardiff = parsim - parObs;
-  double dist = as_scalar(trans(pardiff) * W * pardiff);
+    vec pardiff = parsim - parObs;
+    dist = as_scalar(trans(pardiff) * W * pardiff);
 
-  if (dist < distMinBracket) {
-    distMinBracket = dist;
-    startpar_inner_min_mnbrak = res.par;
+    
+    if (dist < distMinBracket) {
+      distMinBracket = dist;
+      startpar_inner_min_mnbrak = res.par;
+    }
+    
+    if (dist < distMin) {
+      startpar_inner_min = res.par;
+    }
+
+    if (print_level > 1) {
+      rowvec tmp = trans(parsim);
+      tmp.print("parsim-QL =");
+      tmp = trans(pardiff);
+      tmp.print("pardiff-QL=");
+    }
   }
+  else { // Score criterium
+    const int evaluateGradient=1;
+    //    FunctionValue fval = quasiLikelihood(parObs, evaluateGradient);
+    FunctionValue fval = func(parObs, evaluateGradient);
+    vec df = fval.df;
+    dist = as_scalar(trans(df) * W * df);
+  }
+
   if (dist < distMin) {
     distMin = dist;
-    startpar_inner_min = res.par;
     est_inner_min = par;
   }
 
-  if (print_level >= 3) {
+ if (print_level >= 3) {
     Rprintf("Quit Indirect::distanceMetric\n");
   }
   if (print_level > 1) {
     rowvec tmp = trans(par);
     tmp.print("par(theta)=");
-    tmp = trans(parsim);
-    tmp.print("parsim-QL =");
     tmp = trans(parObs);
     tmp.print("parObs-QL =");
-    tmp = trans(pardiff);
-    tmp.print("pardiff-QL=");
-  //  W.print("W=");
     Rprintf("outer_func= %6.4f\n", dist);
   }
   return dist;
@@ -664,11 +738,15 @@ mat Indirect::computeSandwichMatrixIndirect(const mat & H, mat & gr, const mat &
   const double bder_diag_max = max(bder_diag);
   if (bder_diag_min < lowerLimit) {
     aL = (lowerLimit - bder_diag_min)/(1-bder_diag_min);
-    Rprintf("Lower truncate bder, bder_diag_min=%6.4f, aL=%6.4f\n", bder_diag_min, aL);
+    if (print_level >= 2) {
+      Rprintf("Lower truncate bder, bder_diag_min=%6.4f, aL=%6.4f\n", bder_diag_min, aL);
+    }
   }
   if (bder_diag_max > upperLimit) {
     aU = (upperLimit - bder_diag_max)/(1-bder_diag_max);
-    Rprintf("Upper truncate bder, bder_diag_max=%6.4f, aU=%6.4f\n", bder_diag_max, aU);
+    if (print_level >= 2) {
+      Rprintf("Upper truncate bder, bder_diag_max=%6.4f, aU=%6.4f\n", bder_diag_max, aU);
+    }
   }
   const double a = MAX(aL, aU);
   //    Rprintf("Truncate bder, aU=%6.4f\n", a);

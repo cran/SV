@@ -53,7 +53,10 @@ extern "C" {
 		       int * addPenalty, int * checkGrad,
 		       int * print_level,
 		       int * nEval, double * delta, double * xOut, double * xOut_transf, double * fOut,
-		       int * useRoptimiser, int * initialSteepestDescent)
+		       int * useRoptimiser, int * initialSteepestDescent,
+		       int * scoreCriterium,
+		       int * optWeightMatrix,
+		       int * profileGradient)
   {
     const int ITMAX = 200;
     const double gradMax = 1000*1000;
@@ -97,7 +100,7 @@ extern "C" {
     indirectExtern = new Indirect(y, nSim, *nSup, *nTimes, useStartPar,
 				  *minlambda, *maxlambda, ftol, ftol_weak, *gradtol,
 				  *transf, *addPenalty, *print_level, *useRoptimiser, gradMax,
-				  *initialSteepestDescent, ITMAX, saveDraws);
+				  *initialSteepestDescent, ITMAX, saveDraws, *scoreCriterium, *optWeightMatrix);
     qlExtern = indirectExtern;
 
     const vec startpar = SetParVec(par, *mu, *psi, lambda, omega, *nSup,
@@ -111,7 +114,8 @@ extern "C" {
     mat funcvals;
     mat xvals;
     mat xvals_transf;
-    indirectExtern->checkContinuity(startpar, *nEval, *delta, indpar, xvals, xvals_transf, funcvals);
+    indirectExtern->checkContinuity(startpar, *nEval, *delta, indpar, xvals, xvals_transf, funcvals,
+				    *profileGradient);
 
     const int npar = funcvals.n_rows;
     const int m = funcvals.n_cols;
@@ -528,7 +532,9 @@ extern "C" {
 			 char ** simfile,
 			 int * error,
 			 int * useQLAsStartPar,
-			 double * gradMax)
+			 double * gradMax,
+			 int * scoreCriterium,
+			 int * optWeightMatrix)
   {
     vec y = ReadData(*datfile);
     const int ny = y.n_elem;
@@ -571,7 +577,8 @@ extern "C" {
     indirectExtern = new Indirect(y, *nSim, *nSup, *nTimes, useStartPar,
 				  *minlambda, *maxlambda, *ftol, *ftol_weak, *gradtol,
 				  *transf, *addPenalty, *print_level,
-				  *useRoptimiser, *gradMax, *initialSteepestDescent, *ITMAX, saveDraws);
+				  *useRoptimiser, *gradMax, *initialSteepestDescent, *ITMAX, saveDraws,
+				  *scoreCriterium, *optWeightMatrix);
     qlExtern = indirectExtern;
 
     const vec startpar = SetParVec(par, *mu, *psi, lambda, omega, *nSup,
@@ -725,7 +732,9 @@ extern "C" {
 		       int * sandwich,
 		       int * sandwichIndirect,
 		       int * writeSimDataToFile,
-		       double * gradMax)
+		       double * gradMax,
+		       int * scoreCriterium,
+		       int * optWeightMatrix)
   {
     Simulate simObs(*nSup, *nObs, *print_level);
     const int useParVec = 0;
@@ -738,7 +747,8 @@ extern "C" {
     indirectExtern = new Indirect(y, *nSimIndirect, *nSup, *nTimes, useStartPar,
 				  *minlambda, *maxlambda, *ftol, *ftol_weak, *gradtol,
 				  *transf, *addPenalty, *print_level,
-				  *useRoptimiser, *gradMax, *initialSteepestDescent, *ITMAX, saveDraws);
+				  *useRoptimiser, *gradMax, *initialSteepestDescent, *ITMAX, saveDraws,
+				  *scoreCriterium, *optWeightMatrix);
     qlExtern = indirectExtern;
     const vec parvec = SetParVec(par, *mu, *psi, lambda, omega, *nSup,
 				 useParVec, *transf);
@@ -988,10 +998,13 @@ extern "C" {
     // nTimes --> nTimes - 1 ???????
     //    qlExtern = new QL(y, *minlambda, *maxlambda, *transf, *addPenalty);
     const int saveDraws = 0;
+    const int scoreCriterium = 0;
+    const int optWeightMatrix = 0;
     indirectExtern = new Indirect(y, nSim, nSup, nTimes, useStartPar,
 				  minlambda, maxlambda, ftol, ftol_weak, gradtol,
 				  transf, addPenalty, *print_level,
-				  useRoptimiser, gradMax, *initialSteepestDescent, ITMAX, saveDraws);
+				  useRoptimiser, gradMax, *initialSteepestDescent, ITMAX, saveDraws,
+				  scoreCriterium, optWeightMatrix);
     qlExtern = indirectExtern;
 
     vec startpar(*npar);

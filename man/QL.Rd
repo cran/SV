@@ -19,17 +19,17 @@ QL(datfile, mu=0.015, xi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
   \item{xi}{Start value for xi.}
   \item{lambda}{Start values for lambda.}
   \item{omega}{Start values for omega.}
-  \item{minlambda}{Minimum value for lambda.}
-  \item{maxlambda}{Maximum value for lambda.}
-  \item{transf}{0 or 1.}
+  \item{minlambda}{Minimum value for lambda. Defaults to 0.}
+  \item{maxlambda}{Maximum value for lambda. Defaults to 2.}
+  \item{transf}{Internal parameter. Values 0 or 1. 0 gives the default internal parmeterisaton of the unconstrained parameter vector.}
   \item{par}{Alternative for specifying start values. 'par' is the
     unconstrained parameter vector.}
   \item{verbose}{If TRUE, information about estimation are
     output to screen. Default TRUE.}
-  \item{addPenalty}{Add a penalty term for lambda.}
+  \item{addPenalty}{Add a penalty term for lambda. Defaults to TRUE.}
   \item{nObs}{Limits the data to the last 'nObs' observations.}
   \item{checkGradient}{For debug purposes.}
-  \item{gradtol}{Convergence criteria}
+  \item{gradtol}{Convergence criteria. Defaults to 1e-4.}
   \item{useRoptimiser}{0: Use own implemented bfgs algorithm, 1: use R optimising routine}
   \item{updatePars}{Choose which parameters to optimise. Default: all parameters}
   \item{sandwich}{FALSE: Use the inverse hessian matrix as covariance
@@ -44,14 +44,18 @@ QL(datfile, mu=0.015, xi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
  An object of class \code{ql} is returned.
 }
 \references{
-    \url{http://folk.uio.no/skare/SV}
+  \url{http://folk.uio.no/skare/SV}
 
-    Arvid Raknerud and Øivind Skare
-    Indirect inference methods for stochastic volatility models
-    based on non-Gaussian Ornstein-Uhlenbeck processes.
-    Discussion Papers No. 601, December 2009
-    Statistics Norway, Research Department
-    }
+  Paper accepted for publication in Computational Statistics & Data Analysis:
+  Arvid Raknerud and Øivind Skare
+  Indirect inference methods for stochastic volatility models
+  based on non-Gaussian Ornstein-Uhlenbeck processes.
+
+  Available online on:
+  \url{http://www.sciencedirect.com}
+%  Discussion Papers No. 601, December 2009
+%  Statistics Norway, Research Department
+}
 \author{Øivind Skare \email{oivind.skare@medisin.uio.no}}
 %\note{ further notes 
 %

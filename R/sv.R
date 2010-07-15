@@ -218,11 +218,13 @@ QLmulti <- function(datfile, mu=rep(0.015,2), xi=rep(0.1,3),
 IndirectInference <- function(datfile, nTimes=NA, mu=0.015, xi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
                               minlambda=0, maxlambda=2, transf=0, par=NULL, print.level=1, addPenalty=TRUE,
                               nObs=NA,
-                              checkGradient=FALSE, ftol=0.1, ftol.weak=1, gradtol=1e-4, useRoptimiser=FALSE,
+                              checkGradient=FALSE, ftol=0.001, ftol.weak=1, gradtol=1e-4, useRoptimiser=FALSE,
                               initialSteepestDescent=TRUE, ITMAX=200,
                               test.seed=-117,
                               useQLestimateAsStartPar=TRUE,
                               simfile="", gradMax=1000^2) {
+  scoreCriterium <- TRUE
+  optWeightMatrix <- TRUE
 
   time.start <- proc.time()
   nSim <- 1
@@ -344,6 +346,8 @@ IndirectInference <- function(datfile, nTimes=NA, mu=0.015, xi=0.1, lambda=c(0.5
                error=as.integer(error),
                as.integer(useQLestimateAsStartPar),
                as.double(gradMax),
+               as.integer(scoreCriterium),
+               as.integer(optWeightMatrix),
                PACKAGE = "SV")
 
   time.end <- proc.time()
@@ -403,7 +407,8 @@ test <- function(npar, initialSteepestDescent=TRUE,
 CheckContinuity <- function(datfile, nTimes=NA, par=NULL, mu=0.015, xi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
                             minlambda=0, maxlambda=2, transf=0, useParVec=FALSE, verbose=FALSE, addPenalty=TRUE, nObs=NA,
                             checkGradient=FALSE, nEval=100, delta=0.001, ind.par=NULL, gradtol=1e-4,
-                            useRoptimiser=FALSE, initialSteepestDescent=TRUE, test.seed=-117) {
+                            useRoptimiser=FALSE, initialSteepestDescent=TRUE, test.seed=-117, scoreCriterium=TRUE, optWeightMatrix=TRUE,
+                            profileGradient=TRUE) {
   old.seed <- setRNG(kind = "default", seed = test.seed, normal.kind = "default")
   on.exit(setRNG(old.seed))
 
@@ -456,8 +461,11 @@ CheckContinuity <- function(datfile, nTimes=NA, par=NULL, mu=0.015, xi=0.1, lamb
     stop("ind.par should have same length as the parameter vector")
   }
   headers <- headers[which(ind.par==1)]
+
+  if (profileGradient)
+    headers <- c(headers, "Gradient")
   
-  nparOut <- sum(ind.par)
+  nparOut <- sum(ind.par) + as.integer(profileGradient)
   xOut <- rep(0.0, nparOut*nEval);
   xOut.transf <- rep(0.0, nparOut*nEval);
   fOut <- rep(0.0, nparOut*nEval);
@@ -476,6 +484,9 @@ CheckContinuity <- function(datfile, nTimes=NA, par=NULL, mu=0.015, xi=0.1, lamb
                fOut=as.double(fOut),
                as.integer(useRoptimiser),
                as.integer(initialSteepestDescent),
+               as.integer(scoreCriterium),
+               as.integer(optWeightMatrix),
+               as.integer(profileGradient),
                PACKAGE = "SV")
 
   xOut <- matrix(output$xOut, ncol=nparOut)
@@ -629,7 +640,8 @@ SimulationStudy <- function(nRep, methods=c("ql", "indirect"),
                             ftol=0.1, ftol.weak=1, gradtol=1e-4, useRoptimiser=FALSE,
                             initialSteepestDescent=TRUE, ITMAX=200, savefile="saveres.txt",
                             test.seed=-117, sandwich=TRUE,
-                            writeSimDataToFile=FALSE, gradMax=1000^2) {
+                            writeSimDataToFile=FALSE, gradMax=1000^2,
+                            scoreCriterium=TRUE, optWeightMatrix=TRUE) {
   time.start <- proc.time()
   
   old.seed <- setRNG(kind = "default", seed = test.seed, normal.kind = "default")
@@ -707,6 +719,8 @@ SimulationStudy <- function(nRep, methods=c("ql", "indirect"),
                as.integer(sandwichIndirect),
                as.integer(writeSimDataToFile),
                as.double(gradMax),
+               as.integer(scoreCriterium),
+               as.integer(optWeightMatrix),
                PACKAGE = "SV")
   if (output$error == 1) {
     cat("Error in simulaton study. No output\n");
@@ -767,10 +781,10 @@ summary.indirect <- function(object, ...) {
   SummaryCommon(object)
   if ("nIter" %in% names(object))
     cat("Number of iterations: ", object$nIter, "\n")
-  if ("convergence" %in% names(object)) {
-    convergence.txt <- c("No", "Weak", "OK")
-    cat("Convergence: ", convergence.txt[object$convergence+1], "\n")
-  }
+  ##  if ("convergence" %in% names(object)) {
+  ##    convergence.txt <- c("No", "Weak", "OK")
+  ##    cat("Convergence: ", convergence.txt[object$convergence+1], "\n")
+  ##  }
     
   if ("funcval" %in% names(object))
     cat("Function value: ", object$funcval, "\n")
@@ -891,6 +905,7 @@ ReadSimStudy <- function(nSimIndirect, nSup, methods=c("QL", "II"), prefix="../.
     resfile <- "merged.dat"
     x <- system(paste("cat ../R?/*", infix, ".res > ", resfile, sep=""), intern=TRUE)
   }
+  on.exit(file.remove(resfile))
   
   dat <- read.table(resfile, header=FALSE)
 

@@ -10,6 +10,7 @@ class MathOp {
   double Logit(double p);
   void gramSchmidt(mat & u, const mat & v);
   mat robustCholesky(const mat & S);
+  vec findSteepestDescent(double (*func)(const vec &, int &), vec p, const int npar, const double h);
  private:
 };
 

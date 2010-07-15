@@ -45,28 +45,6 @@ ConjugateDirection::ConjugateDirection(const int initialSteepestDescent_,
 ConjugateDirection::~ConjugateDirection() {
 }
 
-vec ConjugateDirection::findSteepestDescent(double (*func)(const vec &, int &), vec p, const int npar, const double h) {
-  int status;
-  vec pder(npar);
-  vec pi(npar);
-  double f0 = func(p, status);
-
-  for (int i=0;i<npar;i++) {
-    pi(i) = p(i);
-  }
-  for (int i=0;i<npar;i++) {
-    pi(i) = p(i) + h;
-    double fi = func(pi, status);
-
-    pi(i) = p(i);
-    pder(i) = (fi - f0)/h;
-  }
-  pder = -pder;
-  //  pder.print("Steepeste descent direction=");
-  //  delete [] pi;
-
-  return pder;
-}
 
 
 void ConjugateDirection::setConjugateDirection(double (*func)(const vec &, int &), vec p, mat & xi, const int npar, const double h) {
@@ -254,6 +232,7 @@ void ConjugateDirection::powell(vec & p, mat & xi, int n, double ftol, double ft
       linmin(p, xit, n, fret, func, steplength(i), error);
 
       if (error) {
+	Rprintf("Error in linmin\n");
 	restart = 1;
 	return;
       }
@@ -294,6 +273,7 @@ void ConjugateDirection::powell(vec & p, mat & xi, int n, double ftol, double ft
     int resetConjugateDirection = 0;
 
     if (converged) {
+      Rprintf("Convergence in powell\n");
       return;
     }
     else if (tryRandomStep) {
@@ -477,7 +457,9 @@ void ConjugateDirection::powell(vec & p, mat & xi, int n, double ftol, double ft
       //      xit.print("xit (2)=");
       linmin(p, xit, n, fret, func, steplength_new, error);
       if (error) {
+	Rprintf("Error in linmin\n");
 	restart = 1;
+
 	return;
       }
       steplength(ibig) = steplength(n-1);
@@ -552,7 +534,7 @@ void ConjugateDirection::linmin(vec & p, const vec & xi, int n,
     Rprintf("  f=%6.4f ax=%6.4f xx=%6.4f fa=%6.4f fx=%6.4f\n",
 	    fret, ax, xx, fa, fx);
   }
-  indirectExtern->resetDistMinBracket();
+  //  indirectExtern->resetDistMinBracket();
   mnbrak(ax, xx, bx, fa, fx, fb, status);
   if (status == EXIT_FAILURE) {
     Rprintf("powell-linmin: Terminate linmin\n");

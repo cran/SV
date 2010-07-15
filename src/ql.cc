@@ -2941,6 +2941,11 @@ void QL::confidenceIntervals(const vec & estimate, const mat & Hi,
   }
   //  PutRNGstate();
   varvec = (sumx2 - (1.0/nsim)*sumx%sumx)/(nsim-1.0);
+  if (debug) {
+    varvec.print_trans("varvec=");
+    sumx.print_trans("sumx=");
+    sumx2.print_trans("sumx2=");
+  }
   
   const double p = 0.025;
   const int iLower = nsim*p - 1;

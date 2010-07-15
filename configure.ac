@@ -39,8 +39,8 @@ AC_CHECK_HEADER(armadillo,,
                 [AC_MSG_ERROR([ERROR: Armadillo headers required; use '-Iincludedir' in CXXFLAGS for unusual locations.])])
 ## second check the lib itself
 arma_savedlibs="$LIBS"
-#LIBS="$LIBS -larmadillo -lpthread"
-LIBS="$LIBS -larmadillo"
+LIBS="$LIBS -larmadillo -lpthread"
+#LIBS="$LIBS -larmadillo"
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <armadillo>]], 
 				[[arma::mat A = arma::eye<arma::mat>(5,5);]])],
 				[],

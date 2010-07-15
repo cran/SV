@@ -34,15 +34,16 @@ QLmulti(datfile, mu=rep(0.015,2), xi=rep(0.1,3),
     lambda for each of the three volatility processes.}
   \item{maxlambda}{A vector of length 3 containing maximum values for
     lambda for each of the three volatility processes.}
-  \item{transf}{0 or 1.}
+  \item{transf}{Internal parameter. Values 0 or 1. 0 gives the default
+    internal parmeterisaton of the unconstrained parameter vector.}
   \item{par}{Alternative for specifying start values. 'par' is the
     unconstrained parameter vector.}
   \item{verbose}{If TRUE, information about estimation are
     output to screen. Default TRUE.}
-  \item{addPenalty}{Add a penalty term for lambda.}
+  \item{addPenalty}{Add a penalty term for lambda. Defaults to TRUE.}
   \item{nObs}{Limits the data to the last 'nObs' observations.}
   \item{checkGradient}{For debug purposes.}
-  \item{gradtol}{Convergence criteria}
+  \item{gradtol}{Convergence criteria. Defaults to 1e-4.}
   \item{useRoptimiser}{0: Use own implemented bfgs algorithm, 1: use R optimising routine}
   \item{updatePars}{Choose which parameters to optimise. Default: all
     parameters}
@@ -58,15 +59,18 @@ QLmulti(datfile, mu=rep(0.015,2), xi=rep(0.1,3),
  An object of class \code{ql} is returned.
 }
 \references{
-    \url{http://folk.uio.no/skare/SV}
+  \url{http://folk.uio.no/skare/SV}
 
-    Arvid Raknerud and Øivind Skare
-    Multivariate stochastic volatility
-               models based on non-Gaussian
-               Ornstein-Uhlenbeck processes.
-    Discussion Papers No. 614, December 2009
-    Statistics Norway, Research Department
-    }
+  Paper accepted for publication in Computational Statistics & Data Analysis:
+  Arvid Raknerud and Øivind Skare
+  Indirect inference methods for stochastic volatility models
+  based on non-Gaussian Ornstein-Uhlenbeck processes.
+
+  Available online on:
+  \url{http://www.sciencedirect.com}
+%  Discussion Papers No. 601, December 2009
+%  Statistics Norway, Research Department
+}
 \author{Øivind Skare \email{oivind.skare@medisin.uio.no}}
 %\note{ further notes 
 %

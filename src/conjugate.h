@@ -20,7 +20,6 @@ class ConjugateDirection : public Optimise, public MathOp {
   const int maxRandomStep;
 
   void computeOrthogonalVectors(mat & u, const vec & pder);
-  vec findSteepestDescent(double (*func)(const vec &, int &), vec p, const int npar, const double h);
 
   void powell(vec & p, mat & xi, int n, double ftol, double ftol_weak, int & iter, double & fret,
 	      double (*func)(const vec &, int &), int & restart, const int ITMAX, int & error);

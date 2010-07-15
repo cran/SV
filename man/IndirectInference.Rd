@@ -8,7 +8,7 @@
 IndirectInference(datfile, nTimes=NA, mu=0.015, xi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
                   minlambda=0, maxlambda=2, transf=0, par=NULL, print.level=1, addPenalty=TRUE,
                   nObs=NA,
-                  checkGradient=FALSE, ftol=0.1, ftol.weak=1, gradtol=1e-4, useRoptimiser=FALSE,
+                  checkGradient=FALSE, ftol=0.001, ftol.weak=1, gradtol=1e-4, useRoptimiser=FALSE,
                   initialSteepestDescent=TRUE, ITMAX=200,
                   test.seed=-117,
                   useQLestimateAsStartPar=TRUE,
@@ -30,54 +30,69 @@ IndirectInference(datfile, nTimes=NA, mu=0.015, xi=0.1, lambda=c(0.5, 0.05), ome
   super position terms.}
   \item{omega}{Start values for omega. Number of terms equal number of
   super position terms.}
-  \item{minlambda}{Minimum value for lambda.}
-  \item{maxlambda}{Maximum value for lambda.}
-  \item{transf}{0 or 1.}
+  \item{minlambda}{Minimum value for lambda. Defaults to 0.}
+  \item{maxlambda}{Maximum value for lambda. Defaults to 2.}
+  \item{transf}{Internal parameter. Values 0 or 1. 0 gives the default internal parmeterisaton of the unconstrained parameter vector.}
   \item{par}{Alternative for specifying start values. 'par' is the
     unconstrained parameter vector.}
   \item{print.level}{If 0, no information about estimation are output to
     screen. The higher value of print.level (1,2,3), the more
     information are output to screen.}
-  \item{addPenalty}{Add a penalty term for lambda.}
+  \item{addPenalty}{Add a penalty term for lambda. Defaults to TRUE.}
   \item{nObs}{Limits the data to the last 'nObs' observations.}
   \item{checkGradient}{For debug purposes.}
-  \item{ftol}{Convergence criteria}
-  \item{ftol.weak}{Convergence criteria}
-  \item{gradtol}{Convergence criteria}
+  \item{ftol}{Convergence criteria. If function value is less than ftol,
+  then optimisation is finished. Defaults to 1e-3.}
+  \item{ftol.weak}{Convergence criteria. If function value does not
+    achieve ftol.weak, the optimisation is restarted (with a different
+    seed). Defaults to 1.}
+  \item{gradtol}{Internal parameter. Convergence criteria for Quasi likelihood
+    estimation. Defaults to 1e-4.}
   \item{useRoptimiser}{0: Use own implemented bfgs algorithm, 1: use R optimising routine}
   \item{initialSteepestDescent}{Use steepest descent as first initial
     direction in the conjugate direction algorithm.}
   \item{ITMAX}{Maximum number of iterations in the conjugate direction
-    optimisation algorithm.}
+    optimisation algorithm. Defaults to 200.}
   \item{test.seed}{Input seed}
   \item{useQLestimateAsStartPar}{If TRUE, use the QL estimate as
     starting value for the indirect inference optimisation. If FALSE,
-    use the input starting values specified for the parameters.}
+    use the input starting values specified for the parameters. Defaults
+  to TRUE}
   \item{simfile}{If different from empty string, the simulated data
     corresponding to
     the indirect inference estimate is written to this file.}
   \item{gradMax}{Internal parameter.}
 }
 \details{
-Indirect inference methods: First, a quasi-likelihood for the actual data is estimated.
-This quasi-likelihood is based on an approximative Gaussian state space
-representation of the Ornstein-Uhlenbeck (OU) based
-model. Next, simulations are made from the data generating OU-model for given parameter
-values. The indirect inference estimator is the parameter value in the OU-model which gives the best
-"match" between the quasi-likelihood estimator for the actual data and the quasi-likelihood estimator
-for the simulated data.
+Indirect inference methods:  First, an
+auxiliary model based on an approximate linear state space
+representation of the OU-based model is estimated.
+Then simulations are
+made from the underlying OU-model for given parameter values.
+A method of moments version of indirect inference is implemented:
+The indirect inference estimator is the parameter value in the OU-model which minimizes, in a
+weighted mean squared error sense, the score vector of the quasi-likelihood function for
+the simulated data, when this score vector is evaluated at the quasi-likelihood estimator
+obtained from the real data.
 
-The estimation may however be very cpu-demanding.
+The estimation may be cpu-demanding.
 }
 \value{
   An object of class \code{indirect} is returned.
 }
-%\references{
-%  \url{http://folk.uio.no/thoree/FEST}
-  
-%  Øivind Skare, Nuala Sheehan, and Thore Egeland
-%  Identification of distant family relationships
-%  Bioinformatics Advance Access published on July 6, 2009.}
+\references{
+  \url{http://folk.uio.no/skare/SV}
+
+  Paper accepted for publication in Computational Statistics & Data Analysis:
+  Arvid Raknerud and Øivind Skare
+  Indirect inference methods for stochastic volatility models
+  based on non-Gaussian Ornstein-Uhlenbeck processes.
+
+  Available online on:
+  \url{http://www.sciencedirect.com}
+%  Discussion Papers No. 601, December 2009
+%  Statistics Norway, Research Department
+}
 \author{Øivind Skare \email{oivind.skare@medisin.uio.no}}
 %\note{ further notes 
 %
