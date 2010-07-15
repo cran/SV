@@ -9,8 +9,8 @@ class ParametersMulti : public MathOp {
  public:
   ParametersMulti(int nSup);
 
-  ParametersMulti(const vec & x, const int transf);
-  void setPars(const vec & x, const int transf);
+  ParametersMulti(const vec & x, const int transf, const int check=1);
+  void setPars(const vec & x, const int transf, const int check=1);
   double getPar(const int ind);
 
   int checkPars(const int transf);
@@ -24,30 +24,10 @@ class ParametersMulti : public MathOp {
 
   ParametersMulti(const vec mu_, const vec psi_,
 		  const mat & omega_, const mat & lambda_,
-		  const double phi21_, const int transf_);
+		  const double phi21_, const int transf_, const int check=1);
 
-  void print() const {
-    for (int k=0;k<q;k++)
-      Rprintf("mu %d: %8.5f\n", k, mu(k));
-
-    for (int k=0;k<q+p;k++)
-      Rprintf("psi %d: %8.5f\n", k, psi(k));
-
-    int nsup = lambda.n_cols;
-    for (int k=0;k<q+p;k++) {
-      Rprintf("lambda %1d: ", k);
-      for (int i=0;i<nsup;i++)
-	Rprintf("%8.5f ", lambda(k,i));
-      Rprintf("\n");
-    }
-    for (int k=0;k<q+p;k++) {
-      Rprintf("omega %d: ", k);
-      for (int i=0;i<nsup;i++)
-	Rprintf("%8.5f ", omega(k,i));
-      Rprintf("\n");
-    }
-    Rprintf("phi21 %6.4f\n", phi(2,1));
-  };
+  void print() const;
+  void print(const char * str) const;
 
   static int q; // Number of observed currencies
   static int p; // default = q-1

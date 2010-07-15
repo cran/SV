@@ -25,34 +25,39 @@ Parameters::Parameters(int nSup) {
 }
 
 Parameters::Parameters(const double mu_, const double psi_,
-		       const vec & omega_, const vec & lambda_, const int transf_) {
+		       const vec & omega_, const vec & lambda_, const int transf_, const int check) {
   psi = psi_;
   mu = mu_;
   omega = omega_;
   lambda = lambda_;
 
-  const int error = checkPars(transf_);
-  if (error) {
-    Rprintf("Parameters::Parameters. Exit\n");
-    exit(-1);
+  if (check) {
+    const int error = checkPars(transf_);
+    if (error) {
+      Rprintf("Parameters::Parameters. Exit\n");
+      exit(-1);
+    }
   }
 }
 
-Parameters::Parameters(const vec & x, const int transf) {
-  setPars(x, transf);
+Parameters::Parameters(const vec & x, const int transf, const int check) {
+  setPars(x, transf, check);
 }
 
-void Parameters::setPars(const vec & x, int const transf) {
+void Parameters::setPars(const vec & x, int const transf, const int check) {
   if (transf == NOTRANSF)
     setPars0(x);
   else if (transf==0)
     setPars1(x);
   else
     setPars2(x);
-  const int error = checkPars(transf);
-  if (error) {
-    Rprintf("Parameters::setPars. Exit\n");
-    exit(-1);
+  if (transf != NOTRANSF && check) {
+    const int error = checkPars(transf);
+
+    if (error) {
+      Rprintf("Parameters::setPars. Exit\n");
+      exit(-1);
+    }
   }
 }
  
@@ -266,15 +271,74 @@ void Parameters::setPars0(const vec & x) {
 
   mu = x(ind++);
 
+  lambda = zeros<vec>(nSup);
   for (int i=0;i<nSup;i++) {
     lambda(i) = x(ind++);
   }
 
   psi = x(ind++);
 
+  omega = zeros<vec>(nSup);
   for (int i=0;i<nSup;i++) {
     omega(i) = x(ind++);
   }
 
   return;
+}
+
+
+mat Parameters::gradient(const int transf) {
+  const int nSup = lambda.n_elem;
+  const int npar = 2*nSup + 2;
+  mat grad = zeros<mat>(npar,npar);
+
+  // mu
+  grad(0,0) = 1.0;
+  
+  // lambda
+  int ind = 1;
+  if (transf == 1 && nSup == 2) {
+    grad(ind,ind) = (lambda(0)-minlambda)*(1-(lambda(0)-minlambda)/(maxlambda-minlambda));
+    grad(ind+1,ind+1) = lambda(1)*(1-lambda(1)/minlambda);
+  }
+  else {
+    vec lambdaStar(nSup);
+    vec par = this->extractParsInv(transf);
+    for (int i=0;i<nSup;i++) {
+      lambdaStar(i) = (lambda(i)-minlambda)/(maxlambda-minlambda);
+    }
+    for (int i=0;i<nSup;i++) {
+      for (int j=i;j<nSup;j++) {
+	grad(ind+i,ind+j) = (maxlambda-minlambda)* lambdaStar(j) / (1 + exp(par(ind+i)));
+      }
+    }
+  }
+  // psi
+  ind = nSup+1;
+  grad(ind,ind) = psi;
+
+  // omega
+  ind = nSup+2;
+  for (int i=0;i<nSup;i++)
+    grad(ind+i,ind+i) = omega(i);
+
+  return grad;
+}
+
+void Parameters::print(const char * str) const {
+  Rprintf("%s\n", str);
+  print();
+}
+
+void Parameters::print() const {
+  Rprintf("mu: %8.5f\n", mu);
+  Rprintf("xi: %8.5f ", psi);
+  Rprintf("lambda: ");
+  int n = lambda.n_elem;
+  for (int i=0;i<n;i++)
+    Rprintf("%8.5f ", lambda(i));
+  Rprintf("omega: ");
+  for (int i=0;i<n;i++)
+    Rprintf("%8.5f ", omega(i));
+  Rprintf("\n");
 }

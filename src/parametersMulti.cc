@@ -30,7 +30,7 @@ ParametersMulti::ParametersMulti(int nSup) {
 
 ParametersMulti::ParametersMulti(const vec mu_, const vec psi_,
 				 const mat & omega_, const mat & lambda_,
-				 const double phi21_, const int transf_) {
+				 const double phi21_, const int transf_, const int check) {
   q=2;
   p=1;
 
@@ -48,24 +48,27 @@ ParametersMulti::ParametersMulti(const vec mu_, const vec psi_,
   }
 }
 
-ParametersMulti::ParametersMulti(const vec & x, const int transf) {
+ParametersMulti::ParametersMulti(const vec & x, const int transf, const int check) {
   q=2;
   p=1;
 
   setPars(x, transf);
 }
 
-void ParametersMulti::setPars(const vec & x, int const transf) {
+void ParametersMulti::setPars(const vec & x, int const transf, const int check) {
   if (transf == NOTRANSF)
     setPars0(x);
   else if (transf==0)
     setPars1(x);
   else
     setPars2(x);
-  const int error = checkPars(transf);
-  if (error) {
-    Rprintf("ParametersMulti::setPars. Exit\n");
-    exit(-1);
+  if (transf != NOTRANSF && check) {
+    const int error = checkPars(transf);
+
+    if (error) {
+      Rprintf("ParametersMulti::setPars. Exit\n");
+      exit(-1);
+    }
   }
 }
 
@@ -390,4 +393,32 @@ int ParametersMulti::checkPars(const int transf) {
   }
 
   return error;
+}
+
+void ParametersMulti::print(const char * str) const {
+  Rprintf("%s\n", str);
+  print();
+}
+
+void ParametersMulti::print() const {
+  for (int k=0;k<q;k++)
+    Rprintf("mu %d: %8.5f\n", k, mu(k));
+
+  for (int k=0;k<q+p;k++)
+    Rprintf("xi %d: %8.5f\n", k, psi(k));
+
+  int nsup = lambda.n_cols;
+  for (int k=0;k<q+p;k++) {
+    Rprintf("lambda %1d: ", k);
+    for (int i=0;i<nsup;i++)
+      Rprintf("%8.5f ", lambda(k,i));
+    Rprintf("\n");
+  }
+  for (int k=0;k<q+p;k++) {
+    Rprintf("omega %d: ", k);
+    for (int i=0;i<nsup;i++)
+      Rprintf("%8.5f ", omega(k,i));
+    Rprintf("\n");
+  }
+  Rprintf("phi21 %6.4f\n", phi(2,1));
 }

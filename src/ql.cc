@@ -1,5 +1,5 @@
 /*Include Files:*/
-#include <iostream>
+//#include <iostream>
 
 #include <R.h>
 #include <R_ext/Applic.h>
@@ -16,6 +16,7 @@ using namespace arma;
 #include "parametersMulti.h"
 #include "optimise.h"
 #include "bfgs.h"
+#include "simulate.h"
 #include "ql.h"
 
 //#define MAX(A,B) ((A) > (B) ? (A) : (B))
@@ -63,18 +64,21 @@ void grad_toRopt(int n, double *par, double *gr, void *ex) {
   }
 }
 
-QL::QL(const double minlambda_, const double maxlambda_, int useRoptimiser_) {
-  Parameters::minlambda = minlambda_;
-  Parameters::maxlambda = maxlambda_;
-  useRoptimiser = useRoptimiser_;
+//QL::QL(const double minlambda_, const double maxlambda_, int useRoptimiser_) {
+//  Parameters::minlambda = minlambda_;
+//  Parameters::maxlambda = maxlambda_;
+//  useRoptimiser = useRoptimiser_;
 
-  penaltyMin = -5.0;
-  penaltyMax = 3.0;
-}
+//  penaltyMin = -7.0;
+//  penaltyMax = 3.0;
+//}
 
 QL::QL(const vec & y, const double minlambda_, const double maxlambda_,
-       const int transf_, const int addPenalty_, int useRoptimiser_) {
+       const int transf_, const int addPenalty_, int useRoptimiser_,
+       const double gradMax_, const int nSup_, const int nTimes_, const int print_level_, const int saveDraws_) : Simulate(nSup_, nTimes_, print_level_, saveDraws_), gradMax(gradMax_) {
   setData(y);
+  nObs = Z0.n_cols;
+
   Parameters::minlambda = minlambda_;
   Parameters::maxlambda = maxlambda_;
   useRoptimiser = useRoptimiser_;
@@ -82,14 +86,47 @@ QL::QL(const vec & y, const double minlambda_, const double maxlambda_,
   transf = transf_;
   addPenalty = addPenalty_;
 
-  penaltyMin = -3.0;
-  penaltyMax = 3.0;
+  if (transf == 0) {
+    penaltyMin = -7.0;
+    penaltyMax = 3.0;
+  }
+  else {
+    penaltyMin = -3.0;
+    penaltyMax = 3.0;
+  }
+}
+
+QL::QL(const vec & y, const double minlambda_, const double maxlambda_,
+       const int transf_, const int addPenalty_, int useRoptimiser_,
+       const double gradMax_) : Simulate(1, 0, 0), gradMax(gradMax_) {
+  setData(y);
+  nObs = Z0.n_cols;
+
+  Parameters::minlambda = minlambda_;
+  Parameters::maxlambda = maxlambda_;
+  useRoptimiser = useRoptimiser_;
+
+  transf = transf_;
+  addPenalty = addPenalty_;
+
+  if (transf == 0) {
+    penaltyMin = -7.0;
+    penaltyMax = 3.0;
+  }
+  else {
+    penaltyMin = -3.0;
+    penaltyMax = 3.0;
+  }
 }
 
 // Multidimensional y
 QL::QL(const mat & y, const vec minlambda_, const vec maxlambda_,
-       const int transf_, const int addPenalty_, int useRoptimiser_) {
+       const int transf_, const int addPenalty_, int useRoptimiser_,
+       const double gradMax_, const int p_, const int q_,
+       const int nSup_, const int nTimes_, const int print_level_, const int saveDraws_) :  Simulate(p_, q_, nSup_, nTimes_, print_level_, saveDraws_), gradMax(gradMax_)  {
   setDataMulti(y);
+  nObs = Z0.n_cols;
+
   ParametersMulti::minlambda = minlambda_;
   ParametersMulti::maxlambda = maxlambda_;
   useRoptimiser = useRoptimiser_;
@@ -97,8 +134,38 @@ QL::QL(const mat & y, const vec minlambda_, const vec maxlambda_,
   transf = transf_;
   addPenalty = addPenalty_;
 
-  penaltyMin = -3.0;
-  penaltyMax = 3.0;
+  if (transf == 0) {
+    penaltyMin = -5.0;
+    penaltyMax = 3.0;
+  }
+  else {
+    penaltyMin = -3.0;
+    penaltyMax = 3.0;
+  }
+}
+
+// Multidimensional y
+QL::QL(const mat & y, const vec minlambda_, const vec maxlambda_,
+       const int transf_, const int addPenalty_, int useRoptimiser_,
+       const double gradMax_) : Simulate(1, 0, 0), gradMax(gradMax_)  {
+  setDataMulti(y);
+  nObs = Z0.n_cols;
+
+  ParametersMulti::minlambda = minlambda_;
+  ParametersMulti::maxlambda = maxlambda_;
+  useRoptimiser = useRoptimiser_;
+
+  transf = transf_;
+  addPenalty = addPenalty_;
+
+  if (transf == 0) {
+    penaltyMin = -5.0;
+    penaltyMax = 3.0;
+  }
+  else {
+    penaltyMin = -3.0;
+    penaltyMax = 3.0;
+  }
 }
 
 QL::~QL() {
@@ -151,7 +218,7 @@ void QL::setDataMulti(const mat & y) {
     Z0sub = Z0.cols(ap-12,ap-1);
     Z0sub.print("Z0 (last)=");
     vec Z0mean = mean(Z0, 1);
-    Z0mean.print("Z0mean=");
+    Z0mean.print_trans("Z0mean=");
   }
 }
 
@@ -166,7 +233,6 @@ void QL::setDataLogReturns(const vec & yret) {
     Z0(1,j) = Z0(0,j) * Z0(0,j);
   }
 }
-
 
 void QL::setUpdates(const ivec updatePars_, const vec par_) {
   updatePars = updatePars_;
@@ -227,9 +293,10 @@ EstimationObject QL::optimise(const vec & startpar,
     Rprintf("\n");
   }
   
-  
+  int nIter=0;
   if (!useRoptimiser) {
-    status = opt.bfgs(funcToOpt, par, print_level, gradtol, H);
+    status = opt.bfgs(funcToOpt, par, print_level, gradtol, H, nIter);
+    //    H.print("H after bfgs:");
   }
   else {
     double * x = new double[npar];
@@ -257,10 +324,12 @@ EstimationObject QL::optimise(const vec & startpar,
     if (print_level >= 1) {
       Rprintf("fncount %d   grcount %d\n", fncount, grcount);
     }
+
+    delete [] x;
   }
 
   vec par2 = setFullPar(par);
-  EstimationObject res = EstimationObject(par2, startpar, H, gradtol, status);
+  EstimationObject res = EstimationObject(par2, startpar, H, gradtol, status, nIter);
 
   //  Rprintf("Quit QL::optimise\n");
   return res;
@@ -286,6 +355,17 @@ FunctionValue QL::quasiLikelihood(const vec & parReduced, const int evaluateGrad
 
   vec par = setFullPar(parReduced);
 
+  const int checkPars=0;
+  Parameters pex(par, transf, checkPars);
+  if (pex.checkPars(transf)) {
+    f = Inf;
+    const int npar = par.n_elem;
+    df = 1000.0 * ones<vec>(npar);
+    df = setReducedPar(df);
+    FunctionValue fval = FunctionValue(f, df);
+    return fval;
+  }
+
   //  Rprintf("QL:quasiLikelihood check: mean(Z0(0,)) %6.4f var(Z0(0,)) %6.4f\n", mean(Z0.row(0)), var(Z0.row(0)));
 
   //  Rprintf("Enter QL::quasiLikelihood\n");
@@ -299,7 +379,7 @@ FunctionValue QL::quasiLikelihood(const vec & parReduced, const int evaluateGrad
       df = gradient(par, b, W, Bt, Qu, sigma, fii);
       //      df.print("df=");
       if (0) {//(any(is.na(df))) {
-	df.print("df =");
+	df.print_trans("df =");
 	stop_own("Error in gradient");
       }
     }
@@ -310,10 +390,6 @@ FunctionValue QL::quasiLikelihood(const vec & parReduced, const int evaluateGrad
 
   df = setReducedPar(df);
   FunctionValue fval = FunctionValue(f, df);
-
-  //  Rprintf("Quit QL::quasiLikelihood\n");
-
-  //exit(-1);
 
   return fval;
 }
@@ -371,6 +447,17 @@ FunctionValue QL::quasiLikelihoodMulti(const vec & parReduced, const int evaluat
 
   vec par = setFullPar(parReduced);
 
+  const int checkPars=0;
+  ParametersMulti pex(par, transf, checkPars);
+  if (pex.checkPars(transf)) {
+    f = Inf;
+    const int npar = par.n_elem;
+    df = 1000.0 * ones<vec>(npar);
+    df = setReducedPar(df);
+    FunctionValue fval = FunctionValue(f, df);
+    return fval;
+  }
+
   if (debug) Rprintf("QL:quasiLikelihoodMulti check: mean(Z0(0,)) %6.4f var(Z0(0,)) %6.4f\n", mean(Z0.row(0)), var(Z0.row(0)));
 
   //  Rprintf("Enter QL::quasiLikelihood\n");
@@ -384,7 +471,7 @@ FunctionValue QL::quasiLikelihoodMulti(const vec & parReduced, const int evaluat
       df = gradient_multivariat(par, b, W, Bt, Qu, sigma, fii, Gi, F1, tau, gama);
       //      df.print("df=");
       if (0) {//(any(is.na(df))) {
-	df.print("df =");
+	df.print_trans("df =");
 	stop_own("Error in gradient");
       }
     }
@@ -591,7 +678,7 @@ vec QL::gradient(const vec& par,
       }
     }
   }
-  //  dertau.print("dertau=");
+  //  dertau.print_trans("dertau=");
   //  derSigma.print("derSigma=");
 
   // diagonalelementene i deriverte mhp. Qu
@@ -744,19 +831,25 @@ vec QL::gradient(const vec& par,
   //  Rprintf("Quit QL::gradient\n");
 
   if (addPenalty) {
-    if (nSup > 1) {
-      double pen1 = 300*(MAX2(par(1)-penaltyMax)-MAX2(penaltyMin-par(1)));
-      double pen2 = 300*(MAX2(par(2)-penaltyMax)-MAX2(penaltyMin-par(2)));
-      if (pen1 != 0 || pen2 != 0) {
+    //    if (nSup > 1) {
+    const int indLambda = 1;
+    for (int i=0;i<nSup;i++) {
+      double pen = 300*(MAX2(par(indLambda+i)-penaltyMax)-MAX2(penaltyMin-par(indLambda+i)));
+      if (pen != 0) {
 	//	Rprintf("pen1 %6.4f pen2 %6.4f\n", pen1, pen2);
 	//	par.print("par=");
 	//	df.print("df=");
-	df(1) += pen1;
-	df(2) += pen2;
+	df(indLambda+i) += pen;
 	//	df.print("df=");
       }
     }
   }
+
+  delete [] derQu;
+  delete [] derfii;
+  delete [] d_fii_lam;
+  delete [] d_Q_lam;
+  delete [] d_Q_omega;
 
   return df;
 }
@@ -898,7 +991,7 @@ vec QL::gradientIndividual(const vec& par,
       }
     }
 
-    //  dertau.print("dertau=");
+    //  dertau.print_trans("dertau=");
     //  derSigma.print("derSigma=");
 
     // diagonalelementene i deriverte mhp. Qu
@@ -1047,16 +1140,11 @@ vec QL::gradientIndividual(const vec& par,
 
 
     if (addPenalty) {
-      if (nSup > 1) {
-	double pen1 = 300*(MAX2(par(1)-penaltyMax)-MAX2(penaltyMin-par(1)));
-	double pen2 = 300*(MAX2(par(2)-penaltyMax)-MAX2(penaltyMin-par(2)));
-	if (pen1 != 0 || pen2 != 0) {
-	  //	Rprintf("pen1 %6.4f pen2 %6.4f\n", pen1, pen2);
-	  //	par.print("par=");
-	  //	df.print("df=");
-	  gr(1,t) -= pen1/ap;
-	  gr(2,t) -= pen2/ap;
-	  //	df.print("df=");
+      const int indLambda = 1;
+      for (int i=0;i<nSup;i++) {
+	double pen = 300*(MAX2(par(indLambda+i)-penaltyMax)-MAX2(penaltyMin-par(indLambda+i)));
+	if (pen != 0) {
+	  gr(indLambda+i,t) -= pen/ap;
 	}
       }
     }
@@ -1192,7 +1280,7 @@ vec QL::gradient_multivariat(const vec & par,
 
     derG = derG + isigma*(Rt*trans(b.col(t)) - GG_*W.cols(t1+1, t0));
 
-    if (debug==2) dertau.print("dertau=");
+    if (debug==2) dertau.print_trans("dertau=");
     if (debug==2) derSigma.print("derSigma=");
     if (debug==2) derG.print("derG=");
 
@@ -1238,7 +1326,7 @@ vec QL::gradient_multivariat(const vec & par,
     }
   }
   if (debug) Rprintf("Loop finished\n");
-  if (debug) dertau.print("dertau=");
+  if (debug) dertau.print_trans("dertau=");
   if (debug) derSigma.print("derSigma=");
   if (debug) derG.print("derG=");
   for (ind=0;ind<(p+q)*nSup;ind++) {
@@ -1542,7 +1630,7 @@ vec QL::gradient_multivariat(const vec & par,
   //grfi21=d_tau_fi21*dertau+d_gama2_fi21*vec(derGama2)+d_F1_fi21*d_Sigma_F1*derSigma+d_Sig2_fi21*d_Sig2;
   mat derGama2 = derG.cols(nGamma-nSup-1, nGamma-1); // [.,p___-p__:p___];
   if (debug) derGama2.print("derGama2=");
-  if (debug) gr.print("gr (before phi21 assignment)=");
+  if (debug) gr.print_trans("gr (before phi21 assignment)=");
   if (0) {
     Rprintf("1) d_tau_fi21*dertau= %8.6f\n", gr(npar-1));
     double tmp =  as_scalar(d_gama2_phi21*vectorize(derGama2));
@@ -1561,19 +1649,18 @@ vec QL::gradient_multivariat(const vec & par,
   //  Rprintf("Quit QL::gradient\n");
 
   if (addPenalty) {
-    if (nSup > 1) {
-      ind = q; // first lambda index
-      for (int k=0;k<p+q;k++) {
-	for (int i=0;i<nSup;i++) {
-	  double pen = 300*(MAX2(par(ind)-penaltyMax)-MAX2(penaltyMin-par(ind)));
-	  if (pen != 0) {
-	    //	Rprintf("pen1 %6.4f pen2 %6.4f\n", pen1, pen2);
-	    //	par.print("par=");
-	    //	df.print("df=");
-	    df(ind) += pen;
-	    ind++;
-	    //	df.print("df=");
-	  }
+    //    if (nSup > 1) {
+    ind = q; // first lambda index
+    for (int k=0;k<p+q;k++) {
+      for (int i=0;i<nSup;i++) {
+	double pen = 300*(MAX2(par(ind)-penaltyMax)-MAX2(penaltyMin-par(ind)));
+	if (pen != 0) {
+	  //	Rprintf("pen1 %6.4f pen2 %6.4f\n", pen1, pen2);
+	  //	par.print_trans("par=");
+	  //	df.print_trans("df=");
+	  df(ind) += pen;
+	  ind++;
+	  //	df.print_trans("df=");
 	}
       }
     }
@@ -1581,9 +1668,16 @@ vec QL::gradient_multivariat(const vec & par,
 
   if (0) {
     Rprintf("Quit QL::gradient_multivariat\n");
-    df.print("df=");
+    df.print_trans("df=");
     exit(-1);
   }
+
+  delete [] derQu;
+  delete [] derfii;
+  delete [] d_fii_lam;
+  delete [] d_Q_lam;
+  delete [] d_Q_omega;
+
   return df;
 }
 
@@ -2061,7 +2155,7 @@ vec QL::gradient_multivariat_individual(const vec & par,
     //grfi21=d_tau_fi21*dertau+d_gama2_fi21*vec(derGama2)+d_F1_fi21*d_Sigma_F1*derSigma+d_Sig2_fi21*d_Sig2;
     mat derGama2 = derG.cols(nGamma-nSup-1, nGamma-1); // [.,p___-p__:p___];
     if (debug) derGama2.print("derGama2=");
-    if (debug) gr.print("gr (before phi21 assignment)=");
+    if (debug) gr.print_trans("gr (before phi21 assignment)=");
     if (0) {
       Rprintf("1) d_tau_fi21*dertau= %8.6f\n", gr(npar-1));
       double tmp =  as_scalar(d_gama2_phi21*vectorize(derGama2));
@@ -2074,19 +2168,18 @@ vec QL::gradient_multivariat_individual(const vec & par,
     gr(npar-1,t) = gr(npar-1,t) + as_scalar(d_gama2_phi21*vectorize(derGama2) + d_F1_phi21*d_Sigma_F1*derSigma + d_Sig2_phi21*d_Sig2);
 
     if (addPenalty) {
-      if (nSup > 1) {
-	ind = q; // first lambda index
-	for (int k=0;k<p+q;k++) {
-	  for (int i=0;i<nSup;i++) {
-	    double pen = 300*(MAX2(par(ind)-penaltyMax)-MAX2(penaltyMin-par(ind)));
-	    if (pen != 0) {
-	      //	Rprintf("pen1 %6.4f pen2 %6.4f\n", pen1, pen2);
-	      //	par.print("par=");
-	      //	df.print("df=");
-	      gr(ind,t) -= pen/ap;
-	      ind++;
-	      //	df.print("df=");
-	    }
+      //      if (nSup > 1) {
+      ind = q; // first lambda index
+      for (int k=0;k<p+q;k++) {
+	for (int i=0;i<nSup;i++) {
+	  double pen = 300*(MAX2(par(ind)-penaltyMax)-MAX2(penaltyMin-par(ind)));
+	  if (pen != 0) {
+	    //	Rprintf("pen1 %6.4f pen2 %6.4f\n", pen1, pen2);
+	    //	par.print_trans("par=");
+	    //	df.print_trans("df=");
+	    gr(ind,t) -= pen/ap;
+	    ind++;
+	    //	df.print_trans("df=");
 	  }
 	}
       }
@@ -2098,7 +2191,7 @@ vec QL::gradient_multivariat_individual(const vec & par,
     df = df - gr.col(t);
   }
   if (debug) {
-    df.print("df (should be zero)=");
+    df.print_trans("df (should be zero)=");
 
     Rprintf("Quit QL::gradient_multivariat_individual\n");
   }
@@ -2282,9 +2375,13 @@ void QL::filter(const vec & par, const mat & Z0, mat & A, mat & A_,
 
   // Add penalty function
   if (addPenalty) {
-    if (nSup > 1) {
+    const int indLambda = 1;
+    for (int i=0;i<nSup;i++) {
+      //    if (nSup > 1) {
       //    f += 100*max(0, (par(1)-3))^3 + 100*max(0,-(3+par(1)))^3 + 100*max(0,(par(2)-3))^3 + 100*max(0,-(3+par(2)]))^3;   /* straffer c[2:3] utenfor [-3,+4]; */
-      double pen = 100*(MAX3(par(1)-penaltyMax) + MAX3(penaltyMin - par(1)) + MAX3(par(2)-penaltyMax) + MAX3(penaltyMin-par(2)));
+      
+      //      double pen = 100*(MAX3(par(1)-penaltyMax) + MAX3(penaltyMin - par(1)) + MAX3(par(2)-penaltyMax) + MAX3(penaltyMin-par(2)));
+      double pen = 100*(MAX3(par(indLambda+i)-penaltyMax) + MAX3(penaltyMin - par(indLambda+i)));
       if (pen < 0.0) {
 	double pen1 = 100*MAX3(par(1)-4);
 	double pen2 = 100*MAX3(-(4+par(1)));
@@ -2560,15 +2657,14 @@ void QL::filter_multivariat(const vec & par, const mat & Z0, mat & A, mat & A_,
 
   // Add penalty function
   if (addPenalty) {
-    if (nSup > 1) {
-      //    f += 100*max(0, (par(1)-3))^3 + 100*max(0,-(3+par(1)))^3 + 100*max(0,(par(2)-3))^3 + 100*max(0,-(3+par(2)]))^3;   /* straffer c[2:3] utenfor [-3,+4]; */
-      ind = q; // first lambda index
-      for (int k=0;k<p+q;k++) {
-	for (int i=0;i<nSup;i++) {
-	  double pen = 100*(MAX3(par(ind)-penaltyMax) + MAX3(penaltyMin - par(ind)));
-	  f += pen;
-	  ind++;
-	}
+    //    if (nSup > 1) {
+    //    f += 100*max(0, (par(1)-3))^3 + 100*max(0,-(3+par(1)))^3 + 100*max(0,(par(2)-3))^3 + 100*max(0,-(3+par(2)]))^3;   /* straffer c[2:3] utenfor [-3,+4]; */
+    ind = q; // first lambda index
+    for (int k=0;k<p+q;k++) {
+      for (int i=0;i<nSup;i++) {
+	double pen = 100*(MAX3(par(ind)-penaltyMax) + MAX3(penaltyMin - par(ind)));
+	f += pen;
+	ind++;
       }
     }
   }
@@ -2724,4 +2820,343 @@ void QL::smoother_multivariate(const vec & par, const mat & a, const mat & a_, c
   //  Rprintf("Quit QL::smoother\n");
 
   return;
+}
+
+void QL::confidenceIntervals(const vec & estimate, const mat & H,
+			     mat & Hi,
+			     Parameters & sd,
+			     Parameters & lower, Parameters & upper,
+			     Parameters & lowerUn, Parameters & upperUn, 
+			     const int sandwich,
+			     const int deltaMethod) {
+  const int debug=0;
+  if (sandwich) {
+    mat gr = qlExtern->quasiLikelihood_individual(estimate);
+    if (debug) {
+      H.print("H_ql=");
+      vec gr_mean = mean(gr, 1);
+      gr_mean.print_trans("gr_ql_mean=");
+      mat gr_var = var(gr, 0, 1);
+      gr_var.print("gr_ql_var=");
+    }
+
+    Hi = computeSandwichMatrix(H, gr, Z0.n_rows);
+    if (debug) {
+      Hi.print("Sandwich (QL)=");
+    }
+  }
+  else {
+    Hi = inv(H);
+  }
+  // Extract confidence intervals for parameters
+  confidenceIntervals(estimate, Hi, sd, lower, upper, lowerUn, upperUn, deltaMethod);
+}
+
+void QL::confidenceIntervalsMulti(const vec & estimate, const mat & H,
+				  mat & Hi,
+				  ParametersMulti & sd,
+				  ParametersMulti & lower, ParametersMulti & upper,
+				  ParametersMulti & lowerUn, ParametersMulti & upperUn, 
+				  const int sandwich) {
+  if (sandwich) {
+    mat gr = qlExtern->quasiLikelihoodMulti_individual(estimate);
+
+    Hi = computeSandwichMatrix(H, gr, nObs);
+  }
+  else {
+    Hi = inv(H);
+  }
+  // Extract confidence intervals for parameters
+  confidenceIntervalsMulti(estimate, Hi, sd, lower, upper, lowerUn, upperUn);
+}
+
+void QL::confidenceIntervals(const vec & estimate, const mat & Hi,
+			     Parameters & sd,
+			     Parameters & lower, Parameters & upper,
+			     Parameters & lowerUn, Parameters & upperUn, 
+			     const int deltaMethod) {
+  const int debug=0;
+  const double q0_975 = 1.959964;
+  //  mat Hi = inv(H);
+  const vec var_transf = Hi.diag();
+  const mat varmat_transf = Hi; //diagmat(var_transf);
+  const vec sd_transf = sqrt(var_transf);
+
+  mat Hi_sqrt = trans(robustCholesky(Hi));
+
+  if (debug) {
+    Hi.print("Hi=");
+    Hi_sqrt.print("Hi_sqrt=");
+  }
+  const vec lowervec = estimate - q0_975*sd_transf;
+  const vec uppervec = estimate + q0_975*sd_transf;
+
+  lowerUn.setPars(lowervec, NOTRANSF);
+  upperUn.setPars(uppervec, NOTRANSF);
+
+  if (debug) {
+    estimate.print_trans("estimate=");
+    sd_transf.print_trans("sd_transf=");
+    lowervec.print_trans("lowervec=");
+    uppervec.print_trans("uppervec=");
+
+    lower.setPars(lowervec, transf);
+    upper.setPars(uppervec, transf);
+
+    Rprintf("Transformed confidence interval (wrong for lambda2):\n");
+    Rprintf("Lower:\n");
+    lower.print();
+    Rprintf("Upper:\n");
+    upper.print();
+  }
+
+  const int npar = estimate.n_elem;
+  const int nsup = Parameters::numberOfSuperPositions(estimate);
+
+  vec varvec;
+
+  Parameters x(nsup);
+  const int nsim=40000;
+  vec sumx = zeros<vec>(npar);
+  vec sumx2 = zeros<vec>(npar);
+  mat xmat = zeros<mat>(npar,nsim);
+  int ind=0;
+  //  GetRNGstate();
+  for (int i=0;i<nsim/2;i++) {
+    // Draw random normal numbers with mean=estimate, sd=sd_transf
+    const vec eps = normal(npar);
+    const vec Hi_sqrtTimesEps = Hi_sqrt * eps;
+    //      const vec u2 = estimate + eps % sd_transf;
+    for (int j=-1;j<2;j+=2) { // -1, 1
+      const vec u = estimate + j * Hi_sqrtTimesEps;
+
+      // Transform u
+      x.setPars(u, transf);
+      const vec xvec = x.asvector();
+      xmat.col(ind) = xvec;
+      sumx = sumx + xvec;
+      sumx2 = sumx2 + xvec%xvec;
+      ind++;
+    }
+  }
+  //  PutRNGstate();
+  varvec = (sumx2 - (1.0/nsim)*sumx%sumx)/(nsim-1.0);
+  
+  const double p = 0.025;
+  const int iLower = nsim*p - 1;
+  const int iUpper = nsim - iLower - 1;
+
+  mat xsort = sort(xmat, 0, 1);
+  vec xlower = xsort.col(iLower);
+  vec xupper = xsort.col(iUpper);
+  if (debug) {
+    xlower.print_trans("xlower=");
+    xupper.print_trans("xupper=");
+  }
+  lower.setPars(xlower, NOTRANSF);
+  upper.setPars(xupper, NOTRANSF);
+
+  if (deltaMethod) {
+    Parameters p(estimate, transf);
+    mat F = p.gradient(transf);
+    //    F.print("F=");
+    mat varmat = F * varmat_transf * trans(F);
+    //    varmat.print("varmat=");
+    varvec = varmat.diag();
+    //    F.print("F=");
+    //    varvec.print("varvec=");
+  }
+  vec sdvec = sqrt(varvec);
+  sd.setPars(sdvec, NOTRANSF);
+
+  if (debug) {
+    sdvec.print_trans("sdvec=");
+    sd.print();
+  }
+}
+
+void QL::confidenceIntervalsMulti(const vec & estimate, const mat & Hi,
+				  ParametersMulti & sd,
+				  ParametersMulti & lower, ParametersMulti & upper,
+				  ParametersMulti & lowerUn, ParametersMulti & upperUn) {
+  const int debug=0;
+  const double q0_975 = 1.959964;
+  //  mat Hi = inv(H);
+  const vec var_transf = Hi.diag();
+  const mat varmat_transf = Hi; //diagmat(var_transf);
+  const vec sd_transf = sqrt(var_transf);
+
+  mat Hi_sqrt = trans(robustCholesky(Hi));
+
+  if (debug) {
+    Hi.print("Hi=");
+    Hi_sqrt.print("Hi_sqrt=");
+  }
+  vec lowervec = estimate - q0_975*sd_transf;
+  vec uppervec = estimate + q0_975*sd_transf;
+
+  lowerUn.setPars(lowervec, NOTRANSF);
+  upperUn.setPars(uppervec, NOTRANSF);
+
+  if (debug) {
+    estimate.print_trans("estimate=");
+    sd_transf.print_trans("sd_transf=");
+    lowervec.print_trans("lowervec=");
+    uppervec.print_trans("uppervec=");
+
+    lower.setPars(lowervec, transf);
+    upper.setPars(uppervec, transf);
+
+    Rprintf("Transformed confidence interval (wrong for lambda2):\n");
+    Rprintf("Lower:\n");
+    lower.print();
+    Rprintf("Upper:\n");
+    upper.print();
+  }
+
+  const int npar = estimate.n_elem;
+  const int nsup = ParametersMulti::numberOfSuperPositions(estimate);
+
+  ParametersMulti x(nsup);
+  const int nsim=40000;
+  vec sumx = zeros<vec>(npar);
+  vec sumx2 = zeros<vec>(npar);
+  mat xmat = zeros<mat>(npar,nsim);
+  int ind=0;
+  //  GetRNGstate();
+  for (int i=0;i<nsim/2;i++) {
+    // Draw random normal numbers with mean=estimate, sd=sd_transf
+    const vec eps = normal(npar);
+    const vec Hi_sqrtTimesEps = Hi_sqrt * eps;
+    //    const vec u = estimate + eps % sd_transf;
+    for (int j=-1;j<2;j+=2) { // -1, 1
+      const vec u = estimate + j * Hi_sqrtTimesEps;
+      
+      // Transform u
+      x.setPars(u, transf);
+      const vec xvec = x.asvector();
+      xmat.col(ind) = xvec;
+      sumx = sumx + xvec;
+      sumx2 = sumx2 + xvec%xvec;
+      ind++;
+    }
+  }
+  //  PutRNGstate();
+  vec varvec = (sumx2 - (1.0/nsim)*sumx%sumx)/(nsim-1.0);
+
+  const double p = 0.025;
+  const int iLower = nsim*p - 1;
+  const int iUpper = nsim - iLower - 1;
+
+  mat xsort = sort(xmat, 0, 1);
+  vec xlower = xsort.col(iLower);
+  vec xupper = xsort.col(iUpper);
+  if (debug) {
+    xlower.print_trans("xlower=");
+    xupper.print_trans("xupper=");
+  }
+  lower.setPars(xlower, NOTRANSF);
+  upper.setPars(xupper, NOTRANSF);
+
+  vec sdvec = sqrt(varvec);
+  sd.setPars(sdvec, NOTRANSF);
+
+  if (debug) {
+    sdvec.print_trans("sdvec=");
+    sd.print();
+  }
+}
+
+
+
+void QL::constrainGradient(mat & gr) {
+  //  Rprintf("gradMax=%8.4f\n", gradMax);
+  rowvec grt = sum(gr % gr,0);
+  int ap = gr.n_cols;
+  //  Rprintf("ap=%d\n", ap);
+  int ind=0;
+  for (int t=0;t<ap;t++) {
+    if (grt(t) < gradMax) {
+      gr.col(ind++) = gr.col(t);
+    }
+    else if (0) {
+      Rprintf("grt(%d)=%6.4f\n", t, grt(t));
+    }
+  }
+
+  //  Rprintf("ind=%d, ap=%d\n", ind, ap);
+  gr = gr.cols(0, ind-1);
+  double mult = ((double) ap)/((double) ind);
+  gr = mult * gr;
+}
+
+mat QL::computeSandwichMatrix(const mat & H, mat & gr, const int nObs) {
+  const int debug=0;
+  if (debug) {
+    vec grmean= mean(gr, 1);
+    grmean.print_trans("grmean=");
+    vec grmax = max(gr, 1);
+    double x = max(grmax);
+    Rprintf("Max gr: %6.4f\n", x);
+    vec grmin = min(gr, 1);
+    x = min(grmin);
+    Rprintf("Min gr: %6.4f\n", x);
+  }
+
+  constrainGradient(gr);
+
+  if (debug) {
+    vec grmax = max(gr, 1);
+    double x = max(grmax);
+    Rprintf("Max gr: %6.4f\n", x);
+    vec grmin = min(gr, 1);
+    x = min(grmin);
+    Rprintf("Min gr: %6.4f\n", x);
+
+    int npar = H.n_rows;
+    
+    mat dftsum = zeros<mat>(npar,npar);
+    for (int t=0; t< 50;t++) {
+      Rprintf("t=%d\n", t);
+      const vec grt = gr.col(t);
+      grt.print_trans("gr(t)=\n");
+      const mat dft = grt * trans(grt);
+      dftsum = dftsum + dft;
+    dftsum.print("dft=");
+    }
+
+    dftsum = zeros<mat>(npar,npar);
+    int ap = gr.n_cols;
+    for (int t=0; t< ap;t++) {
+      const vec grt = gr.col(t);
+      const mat dft = grt * trans(grt);
+      dftsum = dftsum + dft;
+      if (t == 999 || t==1999 || t == ap-1) {
+	dftsum.print("dft(999)=");
+      }
+    }
+    dftsum.print("dftsum=");
+  }
+
+  mat I = gr * trans(gr) / nObs;
+  mat Ji = inv(H) * nObs;
+
+  if (debug) {
+    mat df= I*nObs;
+    df.print("df=");
+    mat Hi = inv(H);
+    Hi.print("Hi=");
+  }
+
+  mat S = Ji*I*Ji/nObs;
+
+
+  if (debug) {
+    Ji.print("Ji_ql=");
+    I.print("I_ql=");
+    const mat Sdiag = sqrt(S.diag());
+    Sdiag.print_trans("sqrt(S.diag_ql())=");
+  }
+
+  return S;
 }

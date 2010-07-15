@@ -7,18 +7,18 @@
   exchange rate data.
 }
 \usage{
-QL(datfile, mu=0.015, psi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
+QL(datfile, mu=0.015, xi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
    minlambda=0, maxlambda=2, transf=0, par=NULL, verbose=FALSE, addPenalty=TRUE, nObs=NA,
-   checkGradient=FALSE, gradtol=0.01, useRoptimiser=FALSE, updatePars=NULL, sandwich=TRUE)
+   checkGradient=FALSE, gradtol=0.01, useRoptimiser=FALSE, updatePars=NULL, sandwich=TRUE, gradMax=1000^2)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{datfile}{A character string giving the name and path of
     the ASCII data file to be read.}
   \item{mu}{Start value for mu.}
-  \item{psi}{Start value for psi.}
-  \item{lambda}{Start values for lambda}
-  \item{omega}{Start values for omega}
+  \item{xi}{Start value for xi.}
+  \item{lambda}{Start values for lambda.}
+  \item{omega}{Start values for omega.}
   \item{minlambda}{Minimum value for lambda.}
   \item{maxlambda}{Maximum value for lambda.}
   \item{transf}{0 or 1.}
@@ -35,6 +35,7 @@ QL(datfile, mu=0.015, psi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
   \item{sandwich}{FALSE: Use the inverse hessian matrix as covariance
     matrix for the parameters, TRUE: use the sandwich
     approximation. Default TRUE.}
+  \item{gradMax}{Internal parameter.}
 }
 %\details{
 %   If necessary, more details than the description above 
@@ -51,9 +52,6 @@ QL(datfile, mu=0.015, psi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
     Discussion Papers No. 601, December 2009
     Statistics Norway, Research Department
     }
-%  Øivind Skare, Nuala Sheehan, and Thore Egeland
-%  Identification of distant family relationships
-%  Bioinformatics Advance Access published on July 6, 2009.}
 \author{Øivind Skare \email{oivind.skare@medisin.uio.no}}
 %\note{ further notes 
 %
@@ -62,8 +60,8 @@ QL(datfile, mu=0.015, psi=0.1, lambda=c(0.5, 0.05), omega=c(0.1, 0.1),
 \seealso{\code{\link{IndirectInference}}}
 \examples{
   help(QL) # R documentation of the QL function
-  \dontrun{obj <- QL("example1.dat", mu=0.0, psi=0.1, lambda=0.05, omega=0.1)}
-  \dontrun{print(obj)} # estimates and information about the optimisation
+  \dontrun{obj <- QL("example1.dat", mu=0.0, xi=0.1, lambda=0.05, omega=0.1)}
+  \dontrun{summary(obj)} # estimates and information about the optimisation
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

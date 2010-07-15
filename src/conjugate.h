@@ -10,7 +10,7 @@ class ConjugateDirection : public Optimise, public MathOp {
 			  vec & par,
 			  double & fret,
 			  double ftol, double ftol_weak, mat & H,
-			  int & restart, int & error);
+			  int & restart, int & iter, const int ITMAX, int & error);
   void setConjugateDirection(double (*func)(const vec &, int &), vec p, mat & xi, const int npar, const double h);
 
  private:
@@ -23,7 +23,7 @@ class ConjugateDirection : public Optimise, public MathOp {
   vec findSteepestDescent(double (*func)(const vec &, int &), vec p, const int npar, const double h);
 
   void powell(vec & p, mat & xi, int n, double ftol, double ftol_weak, int & iter, double & fret,
-	      double (*func)(const vec &, int &), int & restart, int & error);
+	      double (*func)(const vec &, int &), int & restart, const int ITMAX, int & error);
   void linmin(vec & p, const vec & xi, int n, double & fret,
 	      double (*func)(const vec &, int &), double & bx_start, int & error);
   void mnbrak(double & ax, double & bx, double & cx, double & fa, double & fb, double & fc, int & status);

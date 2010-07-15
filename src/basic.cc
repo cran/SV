@@ -101,3 +101,22 @@ int checkMat(const mat & x, const char * str) {
   }
   return error;
 }
+
+
+void writeData(const vec & yret, char * filename) {
+  ofstream ost(filename);
+  ost.precision(10);
+  int ny = yret.n_elem;
+
+  int nr = ny + 1;
+
+  
+  vec y(nr);
+  y(0) = 1.0;
+  ost << y(0) << endl;
+  for (int j=1;j<nr;j++) {
+    y(j) = y(j-1) * exp(yret(j-1)/100.0);
+    ost << y(j) << endl;
+  }
+  ost.close();
+}

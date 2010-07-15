@@ -8,6 +8,7 @@ int equal(const double x, const double x0, const double tol);
 void saveToFile(vec ysim, int index);
 int checkVec(const vec & x, const char * str);
 int checkMat(const mat & x, const char * str);
+void writeData(const vec & yret, char * filename);
 
 struct FunctionValue {
   double f;

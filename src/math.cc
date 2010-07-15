@@ -75,3 +75,19 @@ void MathOp::gramSchmidt(mat & u, const mat & v) {
     u.col(i) = u.col(i)/norm(u.col(i), 2); // Normalize
   }
 }
+
+mat MathOp::robustCholesky(const mat & S) {
+  mat S_sqrt = chol(S);
+
+  if (S_sqrt.n_elem == 0) {
+    Rprintf("Add a small amount to the diagonal before Cholesky\n");
+    const mat SAddDiag = 0.99*S + 0.01*diagmat(S);
+    S_sqrt = trans(chol(SAddDiag));
+  }
+  if (S_sqrt.n_elem == 0) {
+    Rprintf("Diagonalize before Cholesky\n");
+    S_sqrt = trans(chol(diagmat(S)));
+  }
+
+  return S_sqrt;
+}

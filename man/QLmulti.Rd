@@ -7,18 +7,18 @@
   bivariate exchange rate data.
 }
 \usage{
-QLmulti(datfile, mu=rep(0.015,2), psi=rep(0.1,3),
+QLmulti(datfile, mu=rep(0.015,2), xi=rep(0.1,3),
                     lambda=rep(c(0.5, 0.05),3),
                     omega=rep(c(0.1, 0.1),3), phi21=0.2,
                     minlambda=c(0,0,0), maxlambda=c(2,2,2), transf=0, par=NULL, verbose=FALSE, addPenalty=TRUE, nObs=NA,
-                    checkGradient=FALSE, gradtol=0.01, useRoptimiser=FALSE, updatePars=NULL, sandwich=TRUE)
+                    checkGradient=FALSE, gradtol=0.01, useRoptimiser=FALSE, updatePars=NULL, sandwich=TRUE, gradMax=1000^2)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{datfile}{A character string giving the name and path of
     the ASCII data file to be read.}
   \item{mu}{A vector of length 2 containing start values for mu_1 and mu_2.}
-  \item{psi}{A vector of length 3 with start values for psi.}
+  \item{xi}{A vector of length 3 with start values for xi.}
   \item{lambda}{Start values for lambda. A vector of length 3 times
     number of superposition terms (1 or 2). If number of superposition
     terms equal 2, then the order of lambda vector is  lambda_11,
@@ -49,6 +49,7 @@ QLmulti(datfile, mu=rep(0.015,2), psi=rep(0.1,3),
   \item{sandwich}{FALSE: Use the inverse hessian matrix as covariance
     matrix for the parameters, TRUE: use the sandwich
     approximation. Default TRUE.}
+  \item{gradMax}{Internal parameter.}
 }
 %\details{
 %   If necessary, more details than the description above 
@@ -74,8 +75,8 @@ QLmulti(datfile, mu=rep(0.015,2), psi=rep(0.1,3),
 \seealso{\code{\link{QL}}}
 \examples{
   help(QLmulti) # R documentation of the QLmulti function
-  \dontrun{obj <- QLmulti("exampleMulti.dat", mu=c(0.0, 0.0), psi=rep(0.1, 3), lambda=rep(0.1, 3), omega=rep(0.1, 3), phi21=1)}
-  \dontrun{print(obj)} # estimates and information about the optimisation
+  \dontrun{obj.qlmulti <- QLmulti("exampleMulti.dat", mu=rep(0, 2), xi=c(0.4,0.4,0.1), lambda=c(0.005, 0.005, 0.28), omega=c(0.1, 0.1, 0.06), phi21=1, addPenalty=FALSE)}
+  \dontrun{summary(obj)} # estimates and information about the optimisation
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

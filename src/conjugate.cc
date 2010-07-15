@@ -85,11 +85,15 @@ void ConjugateDirection::setConjugateDirection(double (*func)(const vec &, int &
     if (print_level >= 2) {
       xi.print("Initial conjugate direction matrix (xi)=");
     }
+    int error = checkMat(xi, "(setConjugateDirection) xi"); // Check if nan
+    if (error) {
+      Rprintf("Set conjugate direction matrix (xi) = idenity matrix\n");
+      xi = eye<mat>(npar, npar);
+    }
   }
   else {
     xi = eye<mat>(npar, npar);
   }
-  int error = checkMat(xi, "(setConjugateDirection) xi"); // Check if nan
 }
 
 
@@ -97,7 +101,7 @@ void ConjugateDirection::conjugateDirection(double (*func)(const vec &, int &),
 					    vec & par,
 					    double & fret,
 					    double ftol, double ftol_weak, mat & xi,
-					    int & restart, int & error) {
+					    int & restart, int & iter, const int ITMAX, int & error) {
   if (print_level >= 3) {
     Rprintf("Enter conjugateDirection\n");
 
@@ -114,8 +118,8 @@ void ConjugateDirection::conjugateDirection(double (*func)(const vec &, int &),
   setConjugateDirection(func, p, xi, npar, h);
 
   //  double ftol = 1e-1;
-  int iter;
-  powell(p, xi, npar, ftol, ftol_weak, iter, fret, func, restart, error);
+  //  int iter;
+  powell(p, xi, npar, ftol, ftol_weak, iter, fret, func, restart, ITMAX, error);
 
   if (error) {
     return;
@@ -166,19 +170,21 @@ void ConjugateDirection::computeOrthogonalVectors(mat & u, const vec & pder) {
 }
 
 void ConjugateDirection::powell(vec & p, mat & xi, int n, double ftol, double ftol_weak, int & iter, double & fret,
-				double (*func)(const vec &, int &), int & restart, int & error)
+				double (*func)(const vec &, int &), int & restart, const int ITMAX, int & error)
 {
   int i,ibig,j;
   double del,fp,fptt;
 
   const double ftol_noImprovement = 1e-6;
   const double ftol_smallImprovement = 2e-1;
-  const double deltaRandom = 0.01;
-  const int ITMAX = 200; //#define ITMAX 200
+  const double deltaRandom = 0.02;
+  //  const int ITMAX = 200; //#define ITMAX 200
+  //  const int ITMAX_SOMEIMPROVEMENT = 100;
+  //  const double ftol_initialImprovement = 50.0;
 
   int tryRandomStep = 0;
   int iRandomStep = 0;
-  int maxRandomStep = 3;
+  int maxRandomStep = 2;
   restart = 0; /* default */
   error = 0;
 
@@ -189,7 +195,6 @@ void ConjugateDirection::powell(vec & p, mat & xi, int n, double ftol, double ft
     }
     uRandomStep.row(i) = deltaRandom * uRandomStep.row(i) / norm(uRandomStep.row(i), 2);
   }
-  //  uRandomStep.print("uRandomStep=");
 
   double f_step1;
   vec pr(n);
@@ -285,26 +290,37 @@ void ConjugateDirection::powell(vec & p, mat & xi, int n, double ftol, double ft
     int noImprovement = fabs(fp-fret) < 0.5*ftol_noImprovement*(fabs(fp)+fabs(fret));
     int smallImprovement = fabs(fp-fret) < 0.5*ftol_smallImprovement*(fabs(fp)+fabs(fret));
     int weaklyConverged = fret < ftol_weak;
+    //    int someInitialImprovement = fret < ftol_initialImprovement;
     int resetConjugateDirection = 0;
 
-    if (tryRandomStep) {
-      tryRandomStep = 2;
-    }
-    else if (converged || (noImprovement && weaklyConverged)) {
-      if (noImprovement && weaklyConverged) {
-	Rprintf("Weak convergence in powell\n");
-      }
-
+    if (converged) {
       return;
+    }
+    else if (tryRandomStep) {
+      tryRandomStep = 2;
     }
     else if (iter >= ITMAX) {
       /*      nrerror("powell exceeding maximum iterations."); */
       Rprintf("powell exceeding maximum iterations\n");
-      Rprintf("No convergence in powell\n");
+
+      if (weaklyConverged) {
+	Rprintf("Weak convergence in powell\n");
+      }
+      else {
+	Rprintf("No convergence in powell\n");
       
-      restart = 1;
+	restart = 1;
+      }
       return;
     }
+      //    else if (iter >= ITMAX_SOMEIMPROVEMENT && !someInitialImprovement) {
+      //      Rprintf("powell exceeding %d iterations and function value (%6.4f) too large (>= %6.4f)\n",
+      //	      ITMAX_SOMEIMPROVEMENT, fret, ftol_initialImprovement);
+      //      Rprintf("No convergence expected in powell. Terminating.\n");
+      
+      //     restart = 1;
+      //      return;
+      //    }
     else if (largerFunc) {
       Rprintf("Unexpected increase in function value during powell. fret=%10.6f  fprev=%10.6f\n", fret, fp);
       Rprintf("Parameter value\n");
@@ -368,8 +384,13 @@ void ConjugateDirection::powell(vec & p, mat & xi, int n, double ftol, double ft
 	iRandomStep++;
 	//	double fr = func(pr);
       }
+      else if (weaklyConverged) {
+	Rprintf("Maximum allowed random steps %d reached\n", maxRandomStep);
+	Rprintf("Weak convergence in powell\n");
+	return;
+      }
       else {
-	Rprintf("iRandomStep=%d, maxRandomStep=%d\n", iRandomStep, maxRandomStep);
+	Rprintf("Maximum allowed random steps %d reached\n", maxRandomStep);
 	Rprintf("No convergence in powell\n");
 	restart = 1;
 
@@ -382,10 +403,8 @@ void ConjugateDirection::powell(vec & p, mat & xi, int n, double ftol, double ft
       updateDirection = 1;
       if (print_level >= 1) {
 	Rprintf("Random step update\n");
-	rowvec tmp = trans(p);
-	tmp.print("  p=");
-	tmp = trans(p_step1);
-	tmp.print("  p_step1=");
+	p.print_trans("  p=");
+	p_step1.print_trans("  p_step1=");
 	Rprintf("   fret=%8.6f f_step1=%8.6f fp=%8.6f xit=", fret, f_step1, fp);
       }
       if (fret > f_step1) { // Invariant: f(p) < f(p_step1)

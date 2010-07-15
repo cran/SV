@@ -236,7 +236,7 @@ int BFGS::lineSearch(FunctionValue (*func)(const vec &, const int), double ai, d
       b2 = aj;
       fb2 = faj;
       dfb2 = dfaj;
-      terminateLoop = 1;
+      terminateLoop = 1; // Terminate BRACKET
 
       //        f = Likelihood(par, Z0=Z0)
       //        df = attr(f, "gradient")
@@ -421,8 +421,9 @@ int BFGS::lineSearch(FunctionValue (*func)(const vec &, const int), double ai, d
 
 // Return 0 if OK
 int BFGS::bfgs(FunctionValue (*func)(const vec &, const int), vec & par,
-	       int print_level, double gradtol, mat & H) {
-  double f_min = -100000;        //f_min=nedre spesifisert grense funksjonsverdi
+	       int print_level, double gradtol, mat & H, int & iter) {
+  //  double f_min = -100000;        //f_min=nedre spesifisert grense funksjonsverdi
+  double f_min = -10000000;        //f_min=nedre spesifisert grense funksjonsverdi
   double term = gradtol;        //term=konvergenskriterium
   
   int nMaxIter = 10000;
@@ -465,6 +466,9 @@ int BFGS::bfgs(FunctionValue (*func)(const vec &, const int), vec & par,
   double dfai = df0;  //dfai=retningsderiverte i x0+ai*sk
 
   double myy = (f_min-f0)/(rho*df0);       //myy=max.steglengde
+  if (print_level >= 2) {
+    Rprintf("myy=%6.4f\n", myy);
+  }
 
   par = x0+aj*sk;             //par = loepende variabel- vektor
   lik = func(par, 1);
@@ -473,7 +477,7 @@ int BFGS::bfgs(FunctionValue (*func)(const vec &, const int), vec & par,
 
   double dfaj = sum(conv_to<vec>::from(df % sk));
   
-  int iter = 1;
+  iter = 1;
   vec g1;
   vec x1;
   double f1;

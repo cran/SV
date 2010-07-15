@@ -1,7 +1,7 @@
 #ifndef INDIRECT__
 #define INDIRECT__ 1
 
-class Indirect : public Simulate, public QL {
+class Indirect : public QL {
  public:
   Indirect(const vec & y,
 	   const int nSim_,
@@ -17,16 +17,24 @@ class Indirect : public Simulate, public QL {
 	   const int addPenalty_,
 	   const int print_level_,
 	   const int useRoptimiser_,
-	   const int initialSteepestDescent_); // : QL(parObs_, minlambda_, maxlambda_), Simulate();
+	   const double gradMax_,
+	   const int initialSteepestDescent_,
+	   const int ITMAX_,
+	   const int saveDraws_); // : QL(parObs_, minlambda_, maxlambda_), Simulate();
   ~Indirect();
 
-  EstimationObject indirectInference(const vec & startpar);
+  EstimationObject indirectInference(const vec & startpar, const int useQLAsStartPar=1);
   void test(vec & par);
 
   void checkContinuity(const vec & startpar, const int nEval, const double delta,
 		       int * indpar, mat & xvals, mat & xvals_transf, mat & funcvals);
 
   double distanceMetric(const vec & par, int & status);
+
+  mat computeBgradient(const vec & par, const vec & sdQL, const vec & startpar_QL, vec & res0, mat & H);
+
+  vec simulateData(const Parameters & pex);
+  void simulateAndSetData(const Parameters & pex);
 
   int dimPar() {return parObs.n_elem;};
 
@@ -47,6 +55,20 @@ class Indirect : public Simulate, public QL {
   void resetDistMin() {
     distMin = DBL_MAX;
   }
+  vec bestQLEstimate() {
+    return est_inner_min;
+  }
+
+  void QLestimates(vec & est, vec & sd) {
+    est = parObs;
+    sd = sdObs;
+  }
+
+  void confidenceIntervalsIndirect(const EstimationObject & obj,
+				   Parameters & sd,
+				   Parameters & lower, Parameters & upper,
+				   Parameters & lowerUn, Parameters & upperUn, 
+				   const int sandwichIndirect);
 
  private:
   int nTimes;
@@ -56,7 +78,8 @@ class Indirect : public Simulate, public QL {
   int print_level_inner;
 
   int useStartPar;
-  vec parObs;
+  vec parObs; // QL estimate
+  vec sdObs; // SD of QL estimate
 
   double distMin;
   double distMinBracket;
@@ -73,6 +96,14 @@ class Indirect : public Simulate, public QL {
   const double ftol_weak;
   const int print_level;
   const int initialSteepestDescent;
+  const int ITMAX;
+
+  void computeQLSimEstimate(const Parameters & pex, const vec & startpar, vec & est, mat & H);
+  void confidenceIntervalsIndirect(const EstimationObject & obj,
+				   Parameters & sd,
+				   Parameters & lower, Parameters & upper,
+				   Parameters & lowerUn, Parameters & upperUn);
+  mat computeSandwichMatrixIndirect(const mat & H, mat & gr, const mat & bder0, const int nObs, const int nTimes);
 };
 
 extern Indirect * indirectExtern;

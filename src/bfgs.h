@@ -8,7 +8,7 @@ class BFGS : public Optimise {
   ~BFGS() {};
 
   int bfgs(FunctionValue (*func)(const vec &, const int), vec & par,
-	   int print_level, double gradtol, mat & H);
+	   int print_level, double gradtol, mat & H, int & iter);
 
  private:
   double cinterpo(double a, double b, double b1, double b2,

@@ -17,7 +17,7 @@ using namespace arma;
 #include "simulate.h"
 
 // Univariate
-Simulate::Simulate(const int nSup_, const int nTimes_, const int print_level_) : p(0), q(1), nSup(nSup_), nTimes(nTimes_){
+Simulate::Simulate(const int nSup_, const int nTimes_, const int print_level_, const int saveDraws_) : p(0), q(1), nSup(nSup_), nTimes(nTimes_), saveDraws(saveDraws_) {
   GetRNGstate(); // Read in .Random.seed
 
   multivariate = 0;
@@ -26,7 +26,7 @@ Simulate::Simulate(const int nSup_, const int nTimes_, const int print_level_) :
 
 // Multivariate
 Simulate::Simulate(const int p_, const int q_,
-		   const int nSup_, const int nTimes_, const int print_level_) : p(p_), q(q_), nSup(nSup_), nTimes(nTimes_){
+		   const int nSup_, const int nTimes_, const int print_level_, const int saveDraws_) : p(p_), q(q_), nSup(nSup_), nTimes(nTimes_), saveDraws(saveDraws_) {
   GetRNGstate(); // Read in .Random.seed
 
   multivariate = 1;
@@ -47,8 +47,10 @@ vec Simulate::normal(const int n) {
 }
 
 void Simulate::simulateInit() {
+  //  const int resetSeed=0;
   // Observation noise
-  GetRNGstate();// Read in .Random.seed
+  //  if (resetSeed)
+  //    GetRNGstate();// Read in .Random.seed
 
   if (!multivariate) {
     epsilon = normal(nTimes);
@@ -57,7 +59,7 @@ void Simulate::simulateInit() {
       Rprintf("Draw - mean(epsilon):%8.6f var(epsilon):%8.6f\n", mean(epsilon), var(epsilon));
       Rprintf("True - mean(epsilon):%8.6f var(epsilon):%8.6f\n", 0.0, 1.0);
     }
-    saveEpsilonToFile();
+    //    saveEpsilonToFile();
   }
   else {
     epsilonMat = zeros<mat>(q, nTimes);
@@ -85,7 +87,13 @@ void Simulate::simulateInit() {
 
   // Random vectors used in simulating stochastic volatility
   
+  //  if (!resetSeed)
   PutRNGstate(); // Write to .Random.seed
+}
+
+void Simulate::cleanup() {
+  delete [] rfirst;
+  delete [] afirst;
 }
 
 void Simulate::draws(mat * rf, mat * af,
@@ -196,7 +204,10 @@ void Simulate::newDraws() {
   if (print_level >= 3) {
     checkDraws(rfirst, afirst, nFirstDraw);
   }
-  saveDrawsToFile();
+  //  saveDrawsToFile();
+
+  delete [] rnew;
+  delete [] anew;
 }
 
 void Simulate::saveEpsilonToFile() {
@@ -246,10 +257,14 @@ void Simulate::saveDrawsToFile() {
 }
 
 vec Simulate::simulate(double mu, const vec & lambda, const double psisum,
-		       const vec & omega2, const int nTimes, const double deltaT,
+		       const vec & omega2, const int nObs, const double deltaT,
 		       const int resetSeed, vec & s2) {
   const vec null;
 
+  if (nObs > nTimes) {
+    Rprintf("Error(Simulate::simulate): nObs > nTimes\n");
+    exit(-1);
+  }
   //  lambda.print("lambda=");
   //  omega2.print("omega2=");
   if (resetSeed) {
@@ -261,21 +276,21 @@ vec Simulate::simulate(double mu, const vec & lambda, const double psisum,
     }
   }
 
-  s2 = sigma2super(lambda, psisum, omega2, deltaT);
+  s2 = sigma2super(lambda, psisum, omega2, deltaT, nObs);
   if (s2.n_elem == 0) {
     return null;
   }
 
-  vec y = mu * deltaT + sqrt(s2) % epsilon;
+  vec y = mu * deltaT + sqrt(s2) % epsilon.rows(0, nObs-1);
 
   if (print_level >= 2) {
     Rprintf("simulate: Mean s2 = %6.4f  var s2 = %6.4f\n", mean(s2), var(s2));
     Rprintf("simulate: Mean y  = %6.4f  var y  = %6.4f\n", mean(y), var(y));
   }
 
-  if (!resetSeed) {
-    PutRNGstate();
-  }
+  //  if (!resetSeed) {
+  //    PutRNGstate();
+  //  }
 
   //  Rprintf("Quit Simulate::simulate\n");
  
@@ -285,7 +300,7 @@ vec Simulate::simulate(double mu, const vec & lambda, const double psisum,
 
 mat Simulate::simulateMulti(const vec & mu, const mat & lambda, const vec & psisum,
 			    const mat & omega2, const double phi21,
-			    const int nTimes, const double deltaT,
+			    const int nObs, const double deltaT,
 			    const int resetSeed, mat & s2) {
   const vec null;
 
@@ -300,10 +315,10 @@ mat Simulate::simulateMulti(const vec & mu, const mat & lambda, const vec & psis
     }
   }
 
-  s2 = zeros<mat>(p+q, nTimes);
+  s2 = zeros<mat>(p+q, nObs);
   for (int k=0;k<p+q;k++) {
     const int indsup = k*nSup;
-    const vec s2_uni = sigma2super(trans(lambda.row(k)), psisum(k), trans(omega2.row(k)), deltaT, indsup);
+    const vec s2_uni = sigma2super(trans(lambda.row(k)), psisum(k), trans(omega2.row(k)), deltaT, nObs, indsup);
     if (s2.n_elem == 0) {
       return null;
     }
@@ -311,7 +326,7 @@ mat Simulate::simulateMulti(const vec & mu, const mat & lambda, const vec & psis
   }
 
 
-  mat y(q, nTimes);
+  mat y(q, nObs);
 
   const rowvec tmp = phi21 * s2.row(2);
   y.row(0) = mu(0) * deltaT + sqrt(s2.row(0) + s2.row(2)) % epsilonMat.row(0);
@@ -362,7 +377,7 @@ int Simulate::validParsForSimulation(const vec & lambda, const vec & nu,
 
 
 vec Simulate::sigma2super(const vec & lambda, const double psisum, const vec & omega2,
-			  const double deltaT, const int indsup) {
+			  const double deltaT, const int nObs, const int indsup) {
   const double psi = psisum/nSup;
   vec alpha = psi/omega2;
   vec nu = psi*psi/omega2;
@@ -372,10 +387,10 @@ vec Simulate::sigma2super(const vec & lambda, const double psisum, const vec & o
     return null;
   }
 
-  vec sig2super = zeros<vec>(nTimes);
+  vec sig2super = zeros<vec>(nObs);
 
   for (int i=0;i<nSup;i++) {
-    vec sig2 = sigma2Volatility(alpha[i], nu[i], lambda[i], deltaT, indsup + i);
+    vec sig2 = sigma2Volatility(alpha[i], nu[i], lambda[i], deltaT, indsup + i, nObs);
     if (sig2.n_elem == 0) {
       return null;
     }
@@ -386,9 +401,9 @@ vec Simulate::sigma2super(const vec & lambda, const double psisum, const vec & o
 }
 
 vec Simulate::sigma2Volatility(const double alpha, const double nu,
-			       const double lambda, const double deltaT, const int isup) {
+			       const double lambda, const double deltaT, const int isup, const int nObs) {
   // Using formula page 517 Griffin&Steel (see also page 177 Barndorff-Nielsen&Shephard);
-  vec sigma2(nTimes);
+  vec sigma2(nObs);
 
   // Set initial value = expected value of sigma2 to avoid drawing from a gamma distribution
   // which is an accept/reject algorithm and therefore may have different number of draws
@@ -398,7 +413,7 @@ vec Simulate::sigma2Volatility(const double alpha, const double nu,
 
   double lambdaNuDeltaT = lambda*nu*deltaT;
 
-  for (int i=1;i<nTimes;i++) {
+  for (int i=1;i<nObs;i++) {
     int index = 0; // Number of draws
 
     vec a = afirst[isup].col(i);

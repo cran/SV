@@ -9,6 +9,7 @@ class MathOp {
   vec proj(const vec & y, const vec & x);
   double Logit(double p);
   void gramSchmidt(mat & u, const mat & v);
+  mat robustCholesky(const mat & S);
  private:
 };
 
